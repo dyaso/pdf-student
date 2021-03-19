@@ -191,7 +191,6 @@ impl Scrollbar for Fractal {
                     r.y0 = r.y0.min(p.y * enlargen);
                     r.y1 = r.y1.max(p.y * enlargen);
                 }
-                println!("rect {}", r);
 
                 let w = r.width();
                 let h = r.height();
@@ -203,7 +202,7 @@ impl Scrollbar for Fractal {
                 }
             }
 
-            let extent = (((self.length as f64 / self.per_square as f64) * 2.).ceil() / 2.);
+            let extent = (((self.length as f64 / self.per_square.max(1) as f64) * 2.).ceil() / 2.);
 
             if extent > ratio {
                 self.scale = max / extent;
@@ -245,14 +244,14 @@ impl Scrollbar for Fractal {
         let p = if self.square.len() == 0 {
             Point::new(0.5, 0.5)
         } else {
-            self.square[idx % self.per_square]
+            self.square[idx % self.per_square.max(1)]
         };
 
         if self.container.height > self.container.width {
-            oy += (idx / self.per_square) as f64 * self.scale;
+            oy += (idx / self.per_square.max(1)) as f64 * self.scale;
             Point::new(ox + p.x * self.scale, oy + p.y * self.scale)
         } else {
-            ox += (idx / self.per_square) as f64 * self.scale;
+            ox += (idx / self.per_square.max(1)) as f64 * self.scale;
             Point::new(ox + p.y * self.scale, oy + p.x * self.scale)
         }
     }
@@ -423,8 +422,8 @@ impl Widget<PdfViewState> for ScrollbarWidget {
 
                 // when dragging the area splitting border the mouse can stray over the overview panel and make pages jump distractingly
                 // todo - replace this with a timer which resets every time the size changes, and ignores mouseovers for the next fraction of a second
-                if e.pos.x < 5. && data.sidebar_position == PageOverviewPosition::East
-                    || e.pos.y < 5. && data.sidebar_position == PageOverviewPosition::South
+                if e.pos.x < 5. && data.scrollbar_position == PageOverviewPosition::East
+                    || e.pos.y < 5. && data.scrollbar_position == PageOverviewPosition::South
                 {
                     return;
                 }

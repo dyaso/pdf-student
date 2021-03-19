@@ -6,11 +6,11 @@ This is a simplified clone of [SumatraPDF](https://en.wikipedia.org/wiki/Sumatra
  
  * quick jumps between multiple bookmarks
  * easy page cropping to trim wide margins and watermarks
- * a panel showing an overview of page tags in place of a scrollbar, making it easy to mark places to return to, or glance ahead quickly to see chapter endnotes
- * arbitrary rectangle colour inversion, so you can have most of a page as comfortable light text against a dark background but still see illustrations in as-printed colours
- * if you use Dropbox or a similar service you can sync your page positions etc between machines
+ * a panel showing an overview of page tags in place of a scrollbar
+ * arbitrary rectangle colour inversion, so you can have view of a page in comfortable light-against-dark but still see illustrations in as-printed colours
+ * if you use Dropbox or a similar service you can sync your page positions, tags, and bookmarks between machines
 
-It can't do most things you might want from a PDF reader like edit forms, print, or select and copy text; it's just for reading books off monitors.
+It can't do most things you might want from a PDF reader like edit forms, print, or select and copy text; it's just for reading books from screens.
 
 ### Installation
 
@@ -18,7 +18,7 @@ Type `cargo run --release` in the terminal, it takes about 5 mins on my machine.
 
 ### Instructions
 
-It's meant to be mostly keyboard operated (arrow keys to navigate etc), with keyboard shortcuts shown in the pop-up context menu. Mousing over the page overview panel temporarily shows pages in the main view to make browsing around quicker.
+It's meant to be mostly keyboard operated (use arrow keys to navigate, ctrl-+ and - to zoom), with keyboard shortcuts shown in the pop-up context menu. Mousing over the page overview panel temporarily shows pages in the main view to make browsing around quicker.
 
 Bookmarks are single letters: type a letter to assign it to the page you're on, then type it again later to jump back to that page. Press &lt;SPACE> to erase a bookmark.
 
@@ -28,18 +28,8 @@ Pages can be tagged with coloured dots by pressing the digits 1-9, or 0 to clear
 
 Note that if you apply a tag or bookmark while mousing over a hyperlink, it's the page at the other end of the link that receives the tag or bookmark; this makes going over the Contents page and quickly adding markers to chapters' first pages easier.
 
-### Defects and missing features
+### Flaws and missing features
 
 Currently pages are only rendered when they first appear on screen, so if you resize the window after that they can become blurry. Hit F5 to refresh.
 
-Scrolling between pages is jumpy as the program is single threaded and rendering pages blocks updating the UI. Likewise, mousing over the overview panel is unpleasantly jerky.
-
-High memory use due to remembering all the page images.
-
 There's no zoom-in function, but you can get a zoomed out effect by repositioning the overview panel (press &lt;TAB>) alongside the scroll direction (&lt;TAB>) and resizing it.
-
-There's no free-form text tagging of pages.
-
-No search function.
-
-The syncing between machines is extremely primitive

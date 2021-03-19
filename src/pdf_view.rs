@@ -96,7 +96,8 @@ pub struct PdfViewState {
 
     pub mouse_state: MouseState,
 
-    pub sidebar_position: PageOverviewPosition,
+    pub scrollbar_position: PageOverviewPosition,
+    pub scrollbar_proportion: f64,
     pub crop_weight: f64, // 0 = no cropping and full page visible, 1size = fully cropped
 
     pub page_number: PageNum,
@@ -139,7 +140,8 @@ impl PdfViewState {
             document_info,
             scrollbar_layout: preferences.scrollbar_layout,
             preferences,
-            sidebar_position: PageOverviewPosition::East,
+            scrollbar_position: PageOverviewPosition::East,
+            scrollbar_proportion: 0.8,
             crop_weight: 1., // 0 = no cropping and full page visible, 1 = fully cropped
             page_number: most_recent_page,
             page_position: 0.5,
@@ -170,7 +172,7 @@ impl PdfViewState {
             document_info: old.document_info.clone(),
             preferences: old.preferences.clone(),
 
-            //sidebar_position: old.sidebar_position,
+            //scrollbar_position: old.scrollbar_position,
             //crop_weight:      old.crop_weight,
             text_viewer_size: Size::new(100., 100.),
             //page_number:      old.page_number,
@@ -577,7 +579,7 @@ impl PdfViewState {
             }
         }
 
-        println!("Rendered page {} at size {} x {}", page_number, w, h);
+        println!("Rendered page {} at {} x {}", page_number, w, h);
 
         pixmap
     }
@@ -682,6 +684,94 @@ impl PdfViewState {
         }
         self.set_visible_scroll_position(window_id, page_number, None);
     }
+
+
+    // todo: prefer vertical scrolling unless at least two full pages can be visible horizontally
+    // todo: multi-columns / -rows
+    pub fn adjust_zoom(&mut self, ctx: &mut EventCtx, desired_scaling: f64) {
+        
+        let page_points_size = self.document.get_page_size_in_points(self.page_number);
+        let page_size = self.document_info.weighted_page_margins_in_normalized_coords(self.page_number, self.crop_weight);
+
+        let page = Size::new(page_points_size.width*page_size.width(), page_points_size.height*page_size.height());
+
+        let window = ctx.size();
+
+        let current_width;
+        let current_height;
+        match self.scroll_direction {
+            Axis::Vertical => {
+                match self.scrollbar_position {
+                    PageOverviewPosition::East | PageOverviewPosition::West =>
+                        current_width = window.width * self.scrollbar_proportion,
+                    _ => current_width = window.width,
+                }
+                current_height = current_width * page.height / page.width;
+            },
+            Axis::Horizontal => {
+                match self.scrollbar_position {
+                    PageOverviewPosition::North | PageOverviewPosition::South =>
+                        current_height = window.height * self.scrollbar_proportion,
+                    _ => current_height = window.height,
+                }
+                current_width = current_height * page.width / page.height;
+            }
+        }
+
+        let vert_prop_reqd = ((current_width * desired_scaling) / window.width);
+        let horiz_prop_reqd = ((current_height * desired_scaling) / window.height);
+
+        if vert_prop_reqd < 1. && horiz_prop_reqd < 1. {
+            if horiz_prop_reqd > vert_prop_reqd {
+                self.scroll_direction = Axis::Horizontal;
+                self.scrollbar_position = PageOverviewPosition::South;
+                self.scrollbar_proportion = horiz_prop_reqd;
+            } else {
+                self.scroll_direction = Axis::Vertical;
+                self.scrollbar_position = PageOverviewPosition::East;
+                self.scrollbar_proportion = vert_prop_reqd;
+            }
+        } else
+        if vert_prop_reqd >= 0.99 && horiz_prop_reqd >= 0.99 {
+            if self.scroll_direction == Axis::Vertical {
+                if desired_scaling > 0.99 {
+                    self.scrollbar_position = PageOverviewPosition::South;
+                } else {
+                    self.scrollbar_position = PageOverviewPosition::East;
+                }
+            } else {
+                if desired_scaling > 0.99 {
+                    self.scrollbar_position = PageOverviewPosition::East;
+                } else {
+                    self.scrollbar_position = PageOverviewPosition::South;
+                }
+            }
+            // if horiz_prop_reqd > vert_prop_reqd {
+            //     self.scroll_direction = Axis::Horizontal;
+            //     self.scrollbar_position = PageOverviewPosition::East;
+            //     //self.scrollbar_proportion = horiz_prop_reqd;
+            // } else {
+            //     self.scroll_direction = Axis::Vertical;
+            //     self.scrollbar_position = PageOverviewPosition::South;
+            //     //self.scrollbar_proportion = vert_prop_reqd;
+            // }
+        } else {
+            if vert_prop_reqd < 0.99 {
+                self.scroll_direction = Axis::Vertical;
+                self.scrollbar_position = PageOverviewPosition::East;
+                self.scrollbar_proportion = vert_prop_reqd;                
+            }
+            if horiz_prop_reqd < 0.99 {
+                self.scroll_direction = Axis::Horizontal;
+                self.scrollbar_position = PageOverviewPosition::South;
+                self.scrollbar_proportion = horiz_prop_reqd;
+            }
+        }
+
+        if desired_scaling > 1. {
+//            self.page_image_cache.borrow_mut().clear();
+        }
+    }
 }
 
 use crate::Hyperlink;
@@ -750,9 +840,9 @@ pub fn make_pdf_view_window(
         DocTransfer,
         Container::new(
             ViewSwitcher::new(
-                |data: &PdfViewState, _env| data.sidebar_position,
+                |data: &PdfViewState, _env| (data.scrollbar_position, data.scrollbar_proportion),
                 |selector, data: &PdfViewState, _env| match selector {
-                    North => Box::new(
+                    (North, proportion) => Box::new(
                         Split::rows(
                             ScrollbarWidget::with_layout_and_length(
                                 data.scrollbar_layout,
@@ -761,11 +851,11 @@ pub fn make_pdf_view_window(
                             PdfTextWidget::new(),
                         )
                         //HilbertCurve::new())
-                        .split_point(0.2)
+                        .split_point(1. - *proportion)
                         .draggable(true)
                         .solid_bar(true),
                     ),
-                    South => {
+                    (South, proportion) => {
                         Box::new(
                             Split::rows(
                                 PdfTextWidget::new(),
@@ -781,12 +871,12 @@ pub fn make_pdf_view_window(
                                 //     .split_point(0.2),
                             )
                             //HilbertCurve::new())
-                            .split_point(0.8)
+                            .split_point(*proportion)
                             .draggable(true)
                             .solid_bar(true),
                         )
                     }
-                    East => Box::new(
+                    (East , proportion)=> Box::new(
                         Split::columns(
                             PdfTextWidget::new(),
                             // Split::rows(
@@ -801,11 +891,11 @@ pub fn make_pdf_view_window(
                             // .split_point(0.8),
                             //HilbertCurve::new())
                         )
-                        .split_point(0.8)
+                        .split_point(*proportion)
                         .draggable(true)
                         .solid_bar(true),
                     ),
-                    West => Box::new(
+                    (West , proportion)=> Box::new(
                         Split::columns(
                             ScrollbarWidget::with_layout_and_length(
                                 data.scrollbar_layout,
@@ -814,11 +904,11 @@ pub fn make_pdf_view_window(
                             PdfTextWidget::new(),
                             //HilbertCurve::new())
                         )
-                        .split_point(0.2)
+                        .split_point(1.-*proportion)
                         .draggable(true)
                         .solid_bar(true),
                     ),
-                    Nowhere => Box::new(PdfTextWidget::new()),
+                    (Nowhere, _) => Box::new(PdfTextWidget::new()),
                 },
             )
             .controller(PdfWindowController), // Box::new(Label::new("Things"))
@@ -847,7 +937,8 @@ pub fn make_pdf_view_window(
     let page_count = info.page_count;
     let user_facing_path = app_state.loaded_documents[doc_idx].user_facing_path.clone();
 
-    new_win.title(
+    new_win.window_size((1024.,1024.))
+        .title(
         move |data: &AppState, env: &Env| {
             format!(
                 "[{}/{}] {}",
@@ -891,7 +982,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                     data.page_image_cache.borrow_mut().clear();
                     ctx.request_paint();
                 } else if cmd.is(REPOSITION_OVERVIEW) {
-                    data.sidebar_position = data.sidebar_position.next();
+                    data.scrollbar_position = data.scrollbar_position.next();
                 } else if cmd.is(NEW_VIEW) {
                     ctx.submit_command(
                         NEW_VIEW_WITH_PARENT
@@ -924,6 +1015,8 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                     // can't use druid::keyboard_types::Code::KeyN etc because i'm not typing qwerty
                     if let Key::Character(k) = &e.key {
                         match k.as_str() {
+                            "+" | "=" => data.adjust_zoom(ctx, 1.05),
+                            "-" | "_" => data.adjust_zoom(ctx, 0.95),
                             "o" => {
                                 let pdf = FileSpec::new("PDF file", &["pdf"]);
                                 let open_dialogue_options =
@@ -951,11 +1044,17 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                             _ => (),
                         }
                     }
+                } else if e.key == Key::Character("+".to_string()) || e.key == Key::Character("=".to_string()) {
+//                    data.zoom_in(ctx);
+                    data.adjust_zoom(ctx, 1.05);
+
+                } else if e.key == Key::Character("-".to_string()) || e.key == Key::Character("_".to_string()) {
+                    data.adjust_zoom(ctx, 0.95);
                 } else if e.key == Key::Tab {
                     if e.mods.shift() {
                         ctx.submit_command(crate::pdf_view::SCROLL_DIRECTION_TOGGLE);
                     } else {
-                        data.sidebar_position = data.sidebar_position.next();
+                        data.scrollbar_position = data.scrollbar_position.next();
                     }
                 } else if e.key == Key::Character("/".to_string()) {
                     // todo - proper search function
@@ -1067,12 +1166,16 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
             }
 
             Event::Wheel(e) => {
+                let x = e.wheel_delta.x;
+                let y = e.wheel_delta.y;
+                let distance = f64::signum(x + y) * f64::sqrt(x * x + y * y);
                 if e.mods.ctrl() {
-                    println!("zoom");
+                    if distance < 0. {
+                        data.adjust_zoom(ctx, 1.05);
+                    } else {
+                        data.adjust_zoom(ctx, 0.95);
+                    }
                 } else {
-                    let x = e.wheel_delta.x;
-                    let y = e.wheel_delta.y;
-                    let distance = f64::signum(x + y) * f64::sqrt(x * x + y * y);
                     let new_layout = data.scroll_by(
                         ctx.window_id(),
                         distance,

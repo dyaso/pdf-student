@@ -627,10 +627,8 @@ impl Widget<PdfViewState> for PdfTextWidget {
 
             Event::Wheel(e) => {
                 if e.mods.ctrl() {
-                    println!("zoom");
                 } else {
                 }
-                println!("MoUTNS");
                 self.locate_mouse_before_layout_change(data);
                 ctx.request_paint();
             }
@@ -779,6 +777,10 @@ impl Widget<PdfViewState> for PdfTextWidget {
         _env: &Env,
     ) {
         match event {
+            LifeCycle::Size(s) => {
+                //data.text_viewer_size = ctx.size();
+            }
+
             LifeCycle::HotChanged(now) => {
                 //println!("Heat status: {}", now);
                 if !now {
