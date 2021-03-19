@@ -93,7 +93,6 @@ struct FilterableList {
     search_filter: String,
     matches: Vector<DocumentInfo>,
     selected_result: Fingerprint,
-    selected_index: Option<usize>,
     all_books: HashMap<Fingerprint, DocumentInfo>,
     access_history: Vector<Fingerprint>,
 }
@@ -125,7 +124,6 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
             search_filter: String::new(),
             matches: Vector::<DocumentInfo>::new(),
             selected_result: Fingerprint::new(),
-            selected_index: None,
             all_books: app_state.all_local_documents_info.clone(),
             access_history: app_state.recent_document_locations.fingerprints.clone(),
         },
@@ -253,6 +251,7 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                     .lens(lens::Identity.map(
                         // Expose shared data with children data
                         |d: &FilterableList| {
+
                             (
                                 (d.selected_result.clone(), d.matches.clone()),
                                 d.matches.clone(),
@@ -263,6 +262,8 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                             (Fingerprint, Vector<DocumentInfo>),
                             Vector<DocumentInfo>,
                         )| {
+                            d.find_matches();
+
                             // todo: let the user edit the filename
                             for (i, info) in modified_list.iter().enumerate() {
                                 if original_list[i].description != info.description {
@@ -275,8 +276,8 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                     )),
                 )
                 .vertical()
-                .with_id(LIST_WIDGET_ID)
-                .controller(ScrollController),
+                .controller(ScrollController)
+                .with_id(LIST_WIDGET_ID),
                 1.,
             ),
     );
@@ -312,10 +313,11 @@ struct ScrollController;
 
 //impl<T> Controller<Scroll<FilterableList, List<FilterableList>>> for ScrollController {
 
-impl<W: Widget<FilterableList>> Controller<FilterableList, W> for ScrollController {
+impl<W: Widget<FilterableList>> Controller<FilterableList, Scroll<FilterableList, W>> for ScrollController {
+//impl<W: Widget<FilterableList>> Controller<FilterableList, W> for ScrollController {
     fn event(
         &mut self,
-        child: &mut W,
+        child: &mut Scroll<FilterableList, W>,
         ctx: &mut EventCtx,
         event: &Event,
         data: &mut FilterableList,
@@ -323,7 +325,7 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for ScrollControll
     ) {
         if let Event::Command(cmd) = event {
             if let Some(rect) = cmd.get(REPOSITION) {
-                //child.scroll_to(*rect);//fix me
+                child.scroll_to(*rect);
             } else {
                 child.event(ctx, event, data, env);
             }
@@ -350,38 +352,46 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
             }
 
             Event::KeyDown(e) => {
+                    println!("{}",e.key);
                 match e.key {
                     druid::keyboard_types::Key::ArrowDown => {
-                        if let Some(idx) = data.selected_index {
-                            data.selected_index = Some(usize::min(idx + 1, data.matches.len() - 1));
-                        } else {
-                            data.selected_index = Some(0);
+                        let mut idx = 0;
+                        if let Some(i) = data.matches.iter().position(|x| x.fingerprint == data.selected_result) {
+                            idx = usize::min(i + 1, data.matches.len() - 1);
                         }
 
                         ctx.submit_command(
                             REPOSITION
                                 .with(Rect::from_origin_size(
-                                    (0., BOOK_CARD_HEIGHT * data.selected_index.unwrap() as f64),
+                                    (0., BOOK_CARD_HEIGHT * idx as f64),
                                     (10., BOOK_CARD_HEIGHT),
                                 ))
                                 .to(LIST_WIDGET_ID),
                         );
                         data.selected_result = data
                             .matches
-                            .get(data.selected_index.unwrap())
+                            .get(idx)
                             .unwrap()
                             .fingerprint
                             .clone();
                     }
                     druid::keyboard_types::Key::ArrowUp => {
-                        if let Some(idx) = data.selected_index {
-                            data.selected_index = Some(idx.saturating_sub(1));
-                        } else {
-                            data.selected_index = Some(data.matches.len() - 1);
+                        let mut idx = data.matches.len() - 1;;
+                        if let Some(i) = data.matches.iter().position(|x| x.fingerprint == data.selected_result) {
+                            idx = i.saturating_sub(1);
                         }
+                        ctx.submit_command(
+                            REPOSITION
+                                .with(Rect::from_origin_size(
+                                    (0., BOOK_CARD_HEIGHT * idx as f64),
+                                    (10., BOOK_CARD_HEIGHT),
+                                ))
+                                .to(LIST_WIDGET_ID),
+                        );
+
                         data.selected_result = data
                             .matches
-                            .get(data.selected_index.unwrap())
+                            .get(idx)
                             .unwrap()
                             .fingerprint
                             .clone();
@@ -392,14 +402,19 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
                         );
                     }
                     _ => {
+
                         //                        println!("{}",e.key);
                         child.event(ctx, event, data, env);
 
-                        data.find_matches();
+                       data.find_matches();
                     }
                 }
             }
-            _ => child.event(ctx, event, data, env),
+            _ => {
+                //println!("{:?}",event);
+                child.event(ctx, event, data, env);
+                data.find_matches();
+}
         }
     }
 
