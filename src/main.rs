@@ -593,7 +593,7 @@ impl AppState {
                     changed = true;
                 }
 
-                if ! doc_info.description.is_empty() {
+                if doc_info.description.is_empty() {
                     // this is the first time we've seen this PDF
                     changed = true;
                     let title = pdf_doc.metadata(mupdf::document::MetadataName::Title);

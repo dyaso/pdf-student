@@ -397,7 +397,7 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
                         //                        println!("{}",e.key);
                         child.event(ctx, event, data, env);
 
-                        data.find_matches();
+                //        data.find_matches();
                     }
                 }
             }

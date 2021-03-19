@@ -182,8 +182,8 @@ impl Scrollbar for Fractal {
                 let h = extent.height();
                 for p in &mut self.square {
                     #[allow(clippy::suspicious_operation_groupings)]
-                    let u = (p.x - extent.x0) / (w * enlargen);
-                    let v = (p.y - extent.y0 + (1. - h) / 2.) / (w * enlargen);
+                    let u = (1./notches + p.x - extent.x0) / (w * enlargen);
+                    let v = (1./notches + p.y - extent.y0 + (1. - (h*enlargen)) / 2.) / (w * enlargen);
                     p.x = v;
                     p.y = u;
                 }
@@ -548,7 +548,12 @@ impl Widget<PdfViewState> for ScrollbarWidget {
         let mut path = BezPath::new();
         path.move_to(self.scrollbar.position(0));
 
+        let mut path2 = BezPath::new();
+
         let space = self.scrollbar.gap_between_nodes();
+
+        let mut prev:Point = self.scrollbar.position(0);
+        //let mut prev_colours = false;
 
         for i in 0..self.length {
             self.scrollbar.connect(i, &mut path);
@@ -567,6 +572,20 @@ impl Widget<PdfViewState> for ScrollbarWidget {
 
             //            let arc_path = BezP
 
+            let mut colours = Vec::<usize>::new();
+            for bit in 0..=9 {
+                if (tags & (1 << bit)) != 0 {
+                    colours.push(bit);
+                }
+            }
+
+            if data.scrollbar_layout == ScrollbarLayout::Fractal && i < self.length-1 && ! colours.is_empty() {
+                path2.move_to(prev.lerp(pos, 0.5));
+                path2.line_to(pos);
+                path2.line_to(pos.lerp(self.scrollbar.position(i+1), 0.5))
+            }
+            prev = pos;
+
             ctx.paint_with_z_index(1, move |ctx| {
                 let mut color = Color::grey(0.35);
 
@@ -574,16 +593,13 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                     color = Color::GRAY;
                 }
 
-                let mut colours = Vec::<usize>::new();
-                for bit in 0..=9 {
-                    if (tags & (1 << bit)) != 0 {
-                        colours.push(bit);
-                    }
-                }
+
 
                 if colours.is_empty() {
                     ctx.fill(Circle::new(pos, si * 0.2), &color);
                 } else {
+
+
 //                    let path = BezPath::new();
                     let mut start_angle = 0.;
 
@@ -645,6 +661,10 @@ impl Widget<PdfViewState> for ScrollbarWidget {
         };
 
         ctx.stroke(path, &Color::grey(0.3), line_width);
+
+        if data.scrollbar_layout == ScrollbarLayout::Fractal {
+            ctx.stroke(path2, &Color::grey(0.6), space*0.4);
+        }
 
         // let mut ppath = BezPath::new();
         // ppath.quad_to((40.0, 50.0), (size.width, size.height));
