@@ -1034,8 +1034,7 @@ fn main() -> Result<(), PlatformError> {
 
             if state.loaded_documents.len() > 0 {
                 let launcher = AppLauncher::with_window(make_pdf_view_window(&mut state, 0, None))
-                    .delegate(Delegate::new(windows[1..].to_vec()))
-                    .use_env_tracing();
+                    .delegate(Delegate::new(windows[1..].to_vec()));
 
                 let message_event_sink = launcher.get_external_handle();
                 std::thread::spawn(move || listen_for_messages(message_event_sink));

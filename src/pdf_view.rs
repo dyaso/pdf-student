@@ -52,8 +52,8 @@ pub const REPOSITION_OVERVIEW: Selector = Selector::new("reposition-overview");
 use crate::pdf_text_widget::lerp_rect;
 use crate::AppState;
 use crate::Fingerprint;
-use crate::ScrollbarWidget;
 use crate::PdfTextWidget;
+use crate::ScrollbarWidget;
 
 #[derive(Debug, Clone, Data, PartialEq)]
 pub enum MouseState {

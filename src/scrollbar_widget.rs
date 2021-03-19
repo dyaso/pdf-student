@@ -184,7 +184,7 @@ impl Scrollbar for Fractal {
                 let sp = 1. / (notches - 2.);
                 let enlargen = notches / (notches - 2.);
 
-                let mut r = Rect::new(0.,0.5,0.,0.5);
+                let mut r = Rect::new(0., 0.5, 0., 0.5);
                 for p in &self.square {
                     r.x0 = r.x0.min(p.x * enlargen);
                     r.x1 = r.x1.max(p.x * enlargen);
@@ -193,13 +193,13 @@ impl Scrollbar for Fractal {
                 }
                 println!("rect {}", r);
 
-
                 let w = r.width();
                 let h = r.height();
                 for p in &mut self.square {
                     let u = (p.x - r.x0) / w;
-                    let v = (p.y - r.y0 + (1. - h/enlargen)/2.) / w;
-                    p.x = v; p.y = u;
+                    let v = (p.y - r.y0 + (1. - h / enlargen) / 2.) / w;
+                    p.x = v;
+                    p.y = u;
                 }
             }
 
@@ -208,7 +208,7 @@ impl Scrollbar for Fractal {
             if extent > ratio {
                 self.scale = max / extent;
                 if height > width {
-                    self.origin.x =  (min - (max / extent)) / 2.;
+                    self.origin.x = (min - (max / extent)) / 2.;
                     self.origin.y = 0.;
                 } else {
                     self.origin.y = (min - (max / extent)) / 2.;
