@@ -1,0 +1,40 @@
+[package]
+name = "pdf-student"
+version = "0.1.0"
+authors = ["dyaso <54167742+dyaso@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+# druid = {version = "0.7.0", features = ["im", "serde"]}
+druid = { git = "https://github.com/linebender/druid.git" , features = ["im", "serde"]}
+
+piet = {version = "*", features = ["serde"] }
+
+# only let one instance of the program run at once -- if another starts, it sends a message to the preexisting one telling it what files to open, then quits
+interprocess = "1.1.1"
+
+#path-slash = "0.1.4"
+
+directories = "3.0"
+
+serde = {version = "*", features = ["derive"] }
+serde_json = "*"
+
+notify = "5.0.0-pre.6"
+num-complex = "0.4"
+md5 = "0.7.0" # used as a fallback for fingerprinting PDF files
+
+[target.'cfg(unix)'.dependencies]
+mupdf = {version = "0.1.2", features=["sys-lib-freetype", "sys-lib-harfbuzz"]}
+# mupdf = { path = "../mupdf-rs/", features=["sys-lib-freetype", "sys-lib-harfbuzz"] }
+
+[target.'cfg(not(unix))'.dependencies]
+mupdf = {version = "0.1.2"}
+
+
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["-Clink-arg=-fuse-ld=lld"]
+

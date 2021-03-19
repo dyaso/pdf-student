@@ -1,0 +1,6 @@
+
+# 		tab_spaces = 2
+
+indent_style = "Visual"
+
+struct_field_align_threshold = 20
