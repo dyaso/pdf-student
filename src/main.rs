@@ -95,8 +95,6 @@ use scrollbar_widget::ScrollbarWidget;
 
 mod book_info_window;
 
-mod contents_tree;
-
 mod preferences;
 use preferences::{make_preferences_window, Preferences};
 
@@ -170,9 +168,9 @@ pub struct DocumentInfo {
 use CropMargins::{AllPagesSame, DistinguishEvenAndOddPages};
 
 impl DocumentInfo {
-    pub fn from_fingerprint(data_dir: &PathBuf, fingerprint: &String) -> Self {
+    pub fn from_fingerprint(data_dir: &PathBuf, fingerprint: &str) -> Self {
         //        if let Some(dir) = data_dir {
-        let mut path: PathBuf = PathBuf::from(data_dir.clone()); //PathBuf::from(&*dir);
+        let mut path: PathBuf = data_dir.clone();
         path.push(&fingerprint);
         path.set_extension("json");
 
@@ -192,7 +190,7 @@ impl DocumentInfo {
             default_margins: AllPagesSame(Rect::new(0.05, 0.05, 0.95, 0.95)),
             custom_margins: HashMap::<PageNum, Rect>::new(),
 
-            fingerprint: fingerprint.clone(),
+            fingerprint: fingerprint.to_string(),
 
             color_inversion_rectangles: HashMap::<PageNum, Vector<Rect>>::new(),
             bookmarks: HashMap::<String, usize>::new(),
@@ -212,11 +210,7 @@ impl DocumentInfo {
         self.custom_margins.contains_key(&page_number)
     }
     fn are_all_pages_same(&self) -> bool {
-        if let AllPagesSame(_) = self.default_margins {
-            true
-        } else {
-            false
-        }
+        matches!(self.default_margins, AllPagesSame(_))
     }
     fn are_even_and_odd_distinguished(&self) -> bool {
         match self.default_margins {
@@ -231,12 +225,12 @@ impl DocumentInfo {
             self.custom_margins.insert(
                 page_number,
                 match self.default_margins {
-                    AllPagesSame(margins) => margins.clone(),
+                    AllPagesSame(margins) => margins,
                     DistinguishEvenAndOddPages(even, odd) => {
                         if page_number % 2 == 0 {
-                            even.clone()
+                            even
                         } else {
-                            odd.clone()
+                            odd
                         }
                     }
                 },
@@ -246,12 +240,12 @@ impl DocumentInfo {
 
     fn toggle_even_odd_page_distinction(&mut self, page_number: PageNum) {
         self.default_margins = match self.default_margins {
-            AllPagesSame(margins) => DistinguishEvenAndOddPages(margins.clone(), margins.clone()),
+            AllPagesSame(margins) => DistinguishEvenAndOddPages(margins, margins),
             DistinguishEvenAndOddPages(even, odd) => {
                 if page_number % 2 == 0 {
-                    AllPagesSame(even.clone())
+                    AllPagesSame(even)
                 } else {
-                    AllPagesSame(odd.clone())
+                    AllPagesSame(odd)
                 }
             }
         }
@@ -259,9 +253,9 @@ impl DocumentInfo {
 
     fn page_margins_in_normalized_coords(&self, page_number: PageNum) -> Rect {
         match self.custom_margins.get(&page_number) {
-            Some(margins) => margins.clone(),
+            Some(margins) => *margins,
             None => match self.default_margins {
-                AllPagesSame(margins) => margins.clone(),
+                AllPagesSame(margins) => margins,
                 DistinguishEvenAndOddPages(even, odd) => {
                     if page_number % 2 == 0 {
                         even
@@ -319,8 +313,8 @@ impl DocumentInfo {
         self.tags.insert(page, t ^ (1 << bit));
     }
 
-    pub fn add_bookmark(&mut self, c: &String, page: usize) {
-        self.bookmarks.insert(c.clone(), page);
+    pub fn add_bookmark(&mut self, c: &str, page: usize) {
+        self.bookmarks.insert(c.to_string(), page);
     }
 
     pub fn lookup_bookmark(&self, c: String) -> Option<&usize> {
@@ -403,7 +397,6 @@ impl Document {
 
 use std::path::{Path, PathBuf};
 
-use md5;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -437,7 +430,7 @@ fn put_thing_at_back_of_set_vector<T: Clone + std::cmp::PartialEq>(
         }
     }
 
-    new_vec.push_back(thing.clone());
+    new_vec.push_back(thing);
 
     *set_vec = new_vec
 }
@@ -478,7 +471,7 @@ impl AppState {
                         preferences = prefs;
                     }
                 }
-                Err(e) => println!("unable to read stored preferences"),
+                Err(e) => println!("unable to read stored preferences: {}", e),
             }
 
             syncable_data_directory = Some(Arc::new(PathBuf::from(proj_dirs.data_local_dir())));
@@ -510,12 +503,11 @@ impl AppState {
         let mut all_local_documents_info = HashMap::<Fingerprint, DocumentInfo>::new();
 
         if let Some(documents_on_this_machine) = &doc_locs {
-            if let dir = preferences.syncable_data_directory.clone() {
-                let p = PathBuf::from(dir);
-                for fp in documents_on_this_machine.fingerprints.iter() {
-                    all_local_documents_info
-                        .insert(fp.clone(), DocumentInfo::from_fingerprint(&p, &fp));
-                }
+            let dir = preferences.syncable_data_directory.clone();
+            let p = PathBuf::from(dir);
+            for fp in documents_on_this_machine.fingerprints.iter() {
+                all_local_documents_info
+                    .insert(fp.clone(), DocumentInfo::from_fingerprint(&p, &fp));
             }
         }
 
@@ -579,7 +571,9 @@ impl AppState {
 
                     let mut buf = [0; 1024];
 
-                    file.read_exact(&mut buf);
+                    if let Err(e) = file.read_exact(&mut buf) {
+                        println!("error reading PDF file to compute document fingerprint: {}",e);
+                    }
                     let digest = md5::compute(&mut buf);
 
                     let res = format!("{:x}", digest);
@@ -599,7 +593,7 @@ impl AppState {
                     changed = true;
                 }
 
-                if doc_info.description == "" {
+                if ! doc_info.description.is_empty() {
                     // this is the first time we've seen this PDF
                     changed = true;
                     let title = pdf_doc.metadata(mupdf::document::MetadataName::Title);
@@ -611,12 +605,12 @@ impl AppState {
                         doc_info.description.push_str(&res);
                     }
 
-                    if doc_info.description == "" {
+                    if ! doc_info.description.is_empty() {
                         doc_info.description.push_str(user_facing_path.as_str());
                     }
 
                     if let Ok(res) = authors {
-                        if res != "" {
+                        if ! res.is_empty() {
                             doc_info.description.push_str(" by ");
                             doc_info.description.push_str(&res);
                         }
@@ -629,23 +623,6 @@ impl AppState {
                 if changed {
                     self.save_document_info(&fingerprint);
                 }
-                // pub enum MetadataName {
-                //     Format,
-                //     Encryption,
-                //     Author,
-                //     Title,
-                //     Producer,
-                //     Creator,
-                //     CreationDate,
-                //     ModDate,
-                //     Subject,
-                //     Keywords,
-                // }
-
-                // what if: fingerprint files get updated while program is running? (like if dropbox is slow to sync)
-                // reload them and merge them somehow
-                // so something needs to watch the place they're stored
-                // and what if the place changes
 
                 // keep track of wherever we've seen this book before, so it can be opened from within the app's "Recently Opened" list
                 // need to remember every place we've seen it, in case we see like a duplicate copy on removable media or something, don't want to forget the on-disk location
@@ -671,9 +648,9 @@ impl AppState {
                             &self.rcurrent_page_number_in_window_id,
                         ));
                         let new_id = self.loaded_documents.len() - 1;
-                        return Some(new_id);
+                        Some(new_id)
                     }
-                    Some(id) => return Some(id),
+                    Some(id) => Some(id),
                 }
             }
             Err(e) => {
@@ -683,7 +660,7 @@ impl AppState {
         }
     }
 
-    pub fn open_book_with_fingerprint(&mut self, fp: &Fingerprint) -> Option<usize> {
+    pub fn open_book_with_fingerprint(&mut self, fp: &str) -> Option<usize> {
         // check if it's already loaded in documents
         // work through list of known locations, most recent first, trying to load file
         if let Some(idx) = self
@@ -730,7 +707,7 @@ impl AppState {
         }
     }
 
-    pub fn save_document_info(&self, fingerprint: &Fingerprint) -> Option<PathBuf> {
+    pub fn save_document_info(&self, fingerprint: &str) -> Option<PathBuf> {
         let data_dir = self.preferences.syncable_data_directory.clone();
         if fs::create_dir_all(&*data_dir).is_err() {
             println!("Unable to create data directory");
@@ -833,13 +810,13 @@ impl AppDelegate<AppState> for Delegate {
     fn command(
         &mut self,
         ctx: &mut DelegateCtx,
-        target: Target,
+        _target: Target,
         cmd: &Command,
         data: &mut AppState,
         _env: &Env,
     ) -> Handled {
         if let Some(message) = cmd.get(RECEIVED_MESSAGE) {
-            let args = message.split("\t");
+            let args = message.split('\t');
             for arg in args {
                 if let Some(doc_id) = data.load_file(Path::new(arg)) {
                     ctx.new_window(make_pdf_view_window(data, doc_id, None));
@@ -910,8 +887,7 @@ impl AppDelegate<AppState> for Delegate {
             match cmd {
                 _ if cmd.is(CHECK_FOR_WINDOWS_TO_OPEN) => {
                     for doc_id in &self.windows_to_open {
-                        let mut new_win = make_pdf_view_window(data, *doc_id, None);
-                        ctx.new_window(new_win);
+                        ctx.new_window(make_pdf_view_window(data, *doc_id, None));
                     }
                     self.windows_to_open.clear();
                     Handled::Yes
@@ -937,7 +913,7 @@ impl AppDelegate<AppState> for Delegate {
 
     fn window_added(
         &mut self,
-        id: WindowId,
+        _id: WindowId,
         _data: &mut AppState,
         _env: &Env,
         _ctx: &mut DelegateCtx,
@@ -947,10 +923,10 @@ impl AppDelegate<AppState> for Delegate {
 
     fn window_removed(
         &mut self,
-        id: WindowId,
+        _id: WindowId,
         data: &mut AppState,
         _env: &Env,
-        ctx: &mut DelegateCtx,
+        _ctx: &mut DelegateCtx,
     ) {
         self.window_count -= 1;
 
@@ -982,7 +958,7 @@ fn listen_for_messages(event_sink: druid::ExtEventSink) {
     let listener = LocalSocketListener::bind(IPC_CONNECTION_NAME).expect(
         "Something went wrong while trying to listen for other instances of `pdf-book-reader`",
     );
-    for mut conn in listener.incoming().filter_map(handle_ipc_error) {
+    for conn in listener.incoming().filter_map(handle_ipc_error) {
         let mut conn = BufReader::new(conn);
         let mut buffer = String::new();
         conn.read_line(&mut buffer).unwrap();
@@ -1002,17 +978,12 @@ fn listen_for_messages(event_sink: druid::ExtEventSink) {
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 
 fn main() -> Result<(), PlatformError> {
-    let mut conn = LocalSocketStream::connect(IPC_CONNECTION_NAME);
+    let conn = LocalSocketStream::connect(IPC_CONNECTION_NAME);
 
     match conn {
         // connected to a preexisting copy of ourselves, send them our command line args then quit
         Ok(mut conn) => {
-            // let args: Vec<String> = env::args().collect();
-            // println!("My path is {}.", args[0]);
-            // println!("I got {:?} arguments: {:?}.", args.len() - 1, &args[1..]);
-            let mut message: String = "meeble beep\n".to_string();
             let message = env::args().skip(1).collect::<Vec<String>>().join("\t");
-            println!("sending arg {}", message.clone());
             conn.write_all(message.as_bytes()).unwrap();
         }
         Err(_) => {
@@ -1032,7 +1003,7 @@ fn main() -> Result<(), PlatformError> {
                 //                  .map(|u| u.unwrap())
                 .collect();
 
-            if state.loaded_documents.len() > 0 {
+            if !state.loaded_documents.is_empty() {
                 let launcher = AppLauncher::with_window(make_pdf_view_window(&mut state, 0, None))
                     .delegate(Delegate::new(windows[1..].to_vec()));
 
@@ -1043,20 +1014,21 @@ fn main() -> Result<(), PlatformError> {
                 //if let Some(dir) = state.preferences.syncable_data_directory.clone() {
                 let file_change_notifications_event_sink = launcher.get_external_handle();
 
-                let mut watcher: Result<RecommendedWatcher, notify::Error> =
+                let watcher: Result<RecommendedWatcher, notify::Error> =
                     Watcher::new_immediate(move |res: Result<notify::event::Event, _>| {
                         if let Ok(event) = res {
                             // https://docs.rs/notify/5.0.0-pre.6/notify/event/enum.EventKind.html
                             if let notify::EventKind::Access(notify::event::AccessKind::Close(
                                 notify::event::AccessMode::Write,
-                            )) = event.kind
-                            {
+                            )) = event.kind {
                                 for path_buf in event.paths {
-                                    file_change_notifications_event_sink.submit_command(
+                                    if let Err(e) = file_change_notifications_event_sink.submit_command(
                                         SYNCABLE_DIRECTORY_FILES_CHANGED,
                                         Box::<PathBuf>::new(path_buf),
                                         Target::Auto,
-                                    );
+                                    ) {
+                                        println!("error sending file change notification: {}",e);
+                                    }
                                 }
                             }
                         }
@@ -1064,7 +1036,9 @@ fn main() -> Result<(), PlatformError> {
                 match watcher {
                     Ok(mut w) => {
                         let p = Path::new(&state.preferences.syncable_data_directory);
-                        w.watch(p, RecursiveMode::NonRecursive);
+                        if let Err(e) = w.watch(p, RecursiveMode::NonRecursive) {
+                            println!("problem trying to watch syncable data directory: {}", e);
+                        }
 
                         state.filesystem_watcher = Some(Arc::new(w));
                     }

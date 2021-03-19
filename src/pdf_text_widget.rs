@@ -48,15 +48,6 @@ pub fn lerp_rect(a: &Rect, b: &Rect, x: f64) -> Rect {
     }
 }
 
-fn scale_rect(rect: &Rect, size: &Size) -> Rect {
-    Rect {
-        x0: rect.x0 * size.width,
-        x1: rect.x1 * size.width,
-        y0: rect.y0 * size.height,
-        y1: rect.y1 * size.height,
-    }
-}
-
 #[derive(PartialEq)]
 enum AnimationState {
     None,
@@ -68,8 +59,8 @@ enum AnimationState {
 enum AnimationField {
     None,
     Crop(f64, f64),
-    Scale,
-    Direction,
+//    Scale,
+//    Direction,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -112,7 +103,7 @@ pub struct PdfTextWidget {
 impl PdfTextWidget {
     pub fn new() -> Self {
         PdfTextWidget {
-            last_mouse_position: Point::new(-1000_000., -1000_000.), // remember this so we have access to it during keyboard invoked animations
+            last_mouse_position: Point::new(-1_000_000., -1_000_000.), // remember this so we have access to it during keyboard invoked animations
 
             animation_state: AnimationState::None,
             animation_field: AnimationField::None,
@@ -152,7 +143,7 @@ impl PdfTextWidget {
                 data.text_viewer_size,
                 target,
                 // make sure we have new positions for all pages currently visible
-                if self.page_positions_before_animating.len() != 0 {
+                if ! self.page_positions_before_animating.is_empty() {
                     let (min, max) = min_max_keys(&self.page_positions_before_animating);
                     Some((min, max))
                 } else {
@@ -202,7 +193,7 @@ impl PdfTextWidget {
 
                 let mut crop_rect = start_crop_rect;
 
-                match (mouse_vert) {
+                match mouse_vert {
                     VerticalDirection::North => {
                         crop_rect.y0 = max(0., min(crop_rect.y1 - 0.1, crop_rect.y0 + delta_y));
                     }
@@ -211,7 +202,7 @@ impl PdfTextWidget {
                     }
                     _ => (),
                 }
-                match (mouse_horiz) {
+                match mouse_horiz {
                     HorizontalDirection::West => {
                         crop_rect.x0 = max(0., min(crop_rect.x1 - 0.1, crop_rect.x0 + delta_x));
                     }
@@ -260,7 +251,7 @@ impl PdfTextWidget {
 
     fn create_color_inversion_rect(&mut self, data: &mut PdfViewState) {
         let (page_number, _) = self.hover_target;
-        if let Some(screen_rect) = self.page_positions_before_animating.get(&page_number) {
+        //if let Some(screen_rect) = self.page_positions_before_animating.get(&page_number) {
             let one_corner =
                 self.page_coords_of_screen_point(data, page_number, self.last_mouse_position);
 
@@ -278,7 +269,7 @@ impl PdfTextWidget {
             rs.push_back(Rect::from_points(one_corner, other_corner));
 
             data.page_image_cache.borrow_mut().remove(&page_number);
-        }
+        //}
     }
 
     fn start_color_inversion_rect_drag(
@@ -331,7 +322,7 @@ impl PdfTextWidget {
 
     fn finish_color_inversion_rect_drag(
         &mut self,
-        ctx: &mut EventCtx,
+        _ctx: &mut EventCtx,
         data: &mut PdfViewState,
         page: PageNum,
         mouse_offset: Vec2,
@@ -375,8 +366,7 @@ impl PdfTextWidget {
         let dy = pos.y - start_pos.y;
         let distance = 2. * (-dx - dy); //f64::signum(dx) * f64::signum(dy) * f64::sqrt(dx*dx + dy*dy);
 
-        let new_layout =
-            data.scroll_by(window_id, distance, start_page_number, start_page_position);
+        data.scroll_by(window_id, distance, start_page_number, start_page_position);
     }
 
     fn locate_mouse_before_layout_change(&mut self, data: &PdfViewState) -> bool {
@@ -523,9 +513,9 @@ impl PdfTextWidget {
                 VerticalDirection::Neither
             };
 
-            return (closest, HoverTarget::CropMarks(left_right, up_down));
+            return (closest, HoverTarget::CropMarks(left_right, up_down))
         }
-        return self.hover_target;
+        self.hover_target
     }
 }
 use std::convert::TryInto;
@@ -566,7 +556,7 @@ impl Widget<PdfViewState> for PdfTextWidget {
         }
         data.text_viewer_size = ctx.size();
         match event {
-            Event::AnimFrame(interval) => match self.animation_state {
+            Event::AnimFrame(_) => match self.animation_state {
                 AnimationState::Starting => {
                     ctx.request_paint();
                     ctx.request_anim_frame();
@@ -579,7 +569,7 @@ impl Widget<PdfViewState> for PdfTextWidget {
                         ctx.request_anim_frame();
                     } else {
                         match self.animation_field {
-                            AnimationField::Crop(start, end) => {
+                            AnimationField::Crop(_, end) => {
                                 data.crop_weight = end;
                                 let full_crop = data
                                     .document_info
@@ -596,8 +586,8 @@ impl Widget<PdfViewState> for PdfTextWidget {
                                         data.page_position
                                     };
                             }
-                            AnimationField::Scale => (),
-                            AnimationField::Direction => (),
+                            // AnimationField::Scale => (),
+                            // AnimationField::Direction => (),
                             AnimationField::None => (),
                         }
                         self.animation_field = AnimationField::None;
@@ -625,10 +615,10 @@ impl Widget<PdfViewState> for PdfTextWidget {
                 }
             }
 
-            Event::Wheel(e) => {
-                if e.mods.ctrl() {
-                } else {
-                }
+            Event::Wheel(_) => {
+                // if e.mods.ctrl() {
+                // } else {
+                // }
                 self.locate_mouse_before_layout_change(data);
                 ctx.request_paint();
             }
@@ -690,22 +680,19 @@ impl Widget<PdfViewState> for PdfTextWidget {
                 ctx.set_active(false);
                 if e.button.is_right() {}
                 if e.button.is_left() {
-                    match data.mouse_state {
-                        MouseState::ColourInversionRect(
+                    if let MouseState::ColourInversionRect(
                             page_number,
                             mouse_offset,
                             other_corner,
-                        ) => {
+                        ) = data.mouse_state {
                             ctx.set_active(false);
                             self.finish_color_inversion_rect_drag(
                                 ctx,
                                 data,
                                 page_number,
                                 mouse_offset,
-                                other_corner,
-                            )
-                        }
-                        _ => (),
+                                other_corner
+                            );
                     }
                 }
                 data.mouse_state = MouseState::Undragged;
@@ -761,7 +748,6 @@ impl Widget<PdfViewState> for PdfTextWidget {
                             other_corner,
                         )
                     }
-                    _ => (),
                 }
             }
 
@@ -771,13 +757,13 @@ impl Widget<PdfViewState> for PdfTextWidget {
 
     fn lifecycle(
         &mut self,
-        ctx: &mut LifeCycleCtx,
+        _ctx: &mut LifeCycleCtx,
         event: &LifeCycle,
-        data: &PdfViewState,
+        _data: &PdfViewState,
         _env: &Env,
     ) {
         match event {
-            LifeCycle::Size(s) => {
+            LifeCycle::Size(_) => {
                 //data.text_viewer_size = ctx.size();
             }
 
@@ -822,7 +808,7 @@ impl Widget<PdfViewState> for PdfTextWidget {
 
     fn layout(
         &mut self,
-        layout_ctx: &mut LayoutCtx,
+        _layout_ctx: &mut LayoutCtx,
         bc: &BoxConstraints,
         _data: &PdfViewState,
         _env: &Env,
@@ -894,13 +880,10 @@ impl Widget<PdfViewState> for PdfTextWidget {
 
         // todo: order keys so main page is drawn last, so in animated transitions it's always on top
         for (page_number, screen_start_rect) in self.page_positions_before_animating.iter() {
-            let mut screen_end_rect: Rect = (*screen_start_rect).clone();
+            let mut screen_end_rect: Rect = *screen_start_rect;
 
-            match self.page_positions_after_animating.get(page_number) {
-                Some(r) => screen_end_rect = *r,
-                None => {
-                    //println!("no target rect found");
-                }
+            if let Some(r) = self.page_positions_after_animating.get(page_number) {
+                screen_end_rect = *r;
             }
 
             let rect = lerp_rect(screen_start_rect, &screen_end_rect, animation);
@@ -931,9 +914,9 @@ impl Widget<PdfViewState> for PdfTextWidget {
                 .get(page_number)
                 .expect("Unable to retrieve page image from cache.");
 
-            let mut tmp_image = ctx
-                .make_image(0, 0, &[], ImageFormat::Rgb)
-                .expect("unable to make temp image");
+            // let tmp_image = ctx
+            //     .make_image(0, 0, &[], ImageFormat::Rgb)
+            //     .expect("unable to make temp image");
 
             // Zoom + panning looks weird with naive interpolation (see https://gamedev.stackexchange.com/questions/188841/how-to-smoothly-interpolate-2d-camera-with-pan-and-zoom ) but rather than do it properly, just make sure the zoom is fixed centred on the middle of the window
             // this makes the aspect ratio slightly wrong while zooming, but is still much better than the entire page bouncing sideways
@@ -1186,7 +1169,6 @@ impl Widget<PdfViewState> for PdfTextWidget {
                 }
             });
 
-            let stroke = Color::RED;
             ctx.stroke(rect, &Color::GRAY, 3.0);
         }
     }

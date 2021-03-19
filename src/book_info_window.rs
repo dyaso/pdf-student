@@ -57,10 +57,6 @@ use crate::OPEN_BOOK_WITH_FINGERPRINT;
 use crate::SAVE_DOCUMENT_INFO;
 use crate::{AppState, Document, DocumentInfo, Fingerprint, RecentDocumentsWithLocations};
 
-fn ui_builder() -> impl Widget<AppState> {
-    Label::new(LocalizedString::new("bles"))
-}
-
 #[derive(Clone, Data, Lens)]
 struct EditableInfoCard {
     info: DocumentInfo,
@@ -79,7 +75,7 @@ impl ScopeTransfer for EditableInfoCardTransfer {
 
     fn read_input(&self, my_state: &mut Self::State, ((selected_fp, _), info): &Self::In) {
         my_state.info = info.clone();
-        my_state.selected = (my_state.info.fingerprint == *selected_fp);
+        my_state.selected = my_state.info.fingerprint == *selected_fp;
     }
 
     fn write_back_input(&self, my_state: &Self::State, external: &mut Self::In) {
@@ -118,14 +114,14 @@ impl ScopeTransfer for FilterableListTransfer {
 const BOOK_CARD_HEIGHT: f64 = 80.;
 const LIST_WIDGET_ID: WidgetId = WidgetId::reserved(1);
 
-pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<AppState> {
+pub fn make_book_info_window(_state: &AppState, _doc_idx: usize) -> WindowDesc<AppState> {
     let ui = Scope::from_function(
         |app_state| FilterableList {
             search_filter: String::new(),
             matches: Vector::<DocumentInfo>::new(),
             selected_result: Fingerprint::new(),
             all_books: app_state.all_local_documents_info.clone(),
-            access_history: app_state.recent_document_locations.fingerprints.clone(),
+            access_history: app_state.recent_document_locations.fingerprints,
         },
         FilterableListTransfer,
         Flex::column()
@@ -151,7 +147,7 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                     .with_child(Align::new(UnitPoint::CENTER, Label::new(" or ")))
                     .with_default_spacer()
                     .with_child(Button::new("Open something new").on_click(
-                        |ctx, data: &mut FilterableList, _env| {
+                        |ctx, _data: &mut FilterableList, _env| {
                             let pdf = FileSpec::new("PDF file", &["pdf"]);
                             let open_dialogue_options = FileDialogOptions::new()
                                 .allowed_types(vec![pdf])
@@ -162,7 +158,7 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                                 .button_text("Open");
                             ctx.submit_command(Command::new(
                                 druid::commands::SHOW_OPEN_PANEL,
-                                open_dialogue_options.clone(),
+                                open_dialogue_options,
                                 Target::Auto,
                             ));
                         },
@@ -180,7 +176,7 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                             },
                             EditableInfoCardTransfer,
                             Either::new(
-                                |card: &EditableInfoCard, e: &Env| card.being_edited,
+                                |card: &EditableInfoCard, _e: &Env| card.being_edited,
                                 SizedBox::new(
                                     Flex::row()
                                         // .height(50.0)
@@ -228,7 +224,7 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                                             );
                                         })
                                         .background(
-                                            Painter::new(|ctx, data: &EditableInfoCard, env| {
+                                            Painter::new(|ctx, data: &EditableInfoCard, _env| {
                                                 let bounds = ctx.size().to_rect();
                                                 if data.selected {
                                                     ctx.fill(
@@ -251,14 +247,13 @@ pub fn make_book_info_window(state: &AppState, doc_idx: usize) -> WindowDesc<App
                     .lens(lens::Identity.map(
                         // Expose shared data with children data
                         |d: &FilterableList| {
-
                             (
                                 (d.selected_result.clone(), d.matches.clone()),
                                 d.matches.clone(),
                             )
                         },
                         move |d: &mut FilterableList,
-                              ((selected_fingerprint, original_list), modified_list): (
+                              ((_selected_fingerprint, original_list), modified_list): (
                             (Fingerprint, Vector<DocumentInfo>),
                             Vector<DocumentInfo>,
                         )| {
@@ -302,7 +297,21 @@ impl FilterableList {
         }
     }
 
-    fn ensure_selected_item_visible(&self) {}
+    fn select_item(&mut self, ctx: &mut EventCtx, idx: usize) {
+        if let Some(item) = self.matches.get(idx) {
+            self.selected_result = item.fingerprint.clone();
+    
+            ctx.submit_command(
+                REPOSITION
+                    .with(Rect::from_origin_size(
+                        (0., BOOK_CARD_HEIGHT * idx as f64),
+                        (10., BOOK_CARD_HEIGHT),
+                    ))
+                    .to(LIST_WIDGET_ID),
+            );
+        }
+
+    }
 }
 
 const REPOSITION: Selector<Rect> = Selector::new("reposition-scroll");
@@ -313,8 +322,10 @@ struct ScrollController;
 
 //impl<T> Controller<Scroll<FilterableList, List<FilterableList>>> for ScrollController {
 
-impl<W: Widget<FilterableList>> Controller<FilterableList, Scroll<FilterableList, W>> for ScrollController {
-//impl<W: Widget<FilterableList>> Controller<FilterableList, W> for ScrollController {
+impl<W: Widget<FilterableList>> Controller<FilterableList, Scroll<FilterableList, W>>
+    for ScrollController
+{
+    //impl<W: Widget<FilterableList>> Controller<FilterableList, W> for ScrollController {
     fn event(
         &mut self,
         child: &mut Scroll<FilterableList, W>,
@@ -352,49 +363,30 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
             }
 
             Event::KeyDown(e) => {
-                    println!("{}",e.key);
+                println!("{}", e.key);
                 match e.key {
                     druid::keyboard_types::Key::ArrowDown => {
                         let mut idx = 0;
-                        if let Some(i) = data.matches.iter().position(|x| x.fingerprint == data.selected_result) {
+                        if let Some(i) = data
+                            .matches
+                            .iter()
+                            .position(|x| x.fingerprint == data.selected_result)
+                        {
                             idx = usize::min(i + 1, data.matches.len() - 1);
                         }
 
-                        ctx.submit_command(
-                            REPOSITION
-                                .with(Rect::from_origin_size(
-                                    (0., BOOK_CARD_HEIGHT * idx as f64),
-                                    (10., BOOK_CARD_HEIGHT),
-                                ))
-                                .to(LIST_WIDGET_ID),
-                        );
-                        data.selected_result = data
-                            .matches
-                            .get(idx)
-                            .unwrap()
-                            .fingerprint
-                            .clone();
+                        data.select_item(ctx, idx);
                     }
                     druid::keyboard_types::Key::ArrowUp => {
-                        let mut idx = data.matches.len() - 1;;
-                        if let Some(i) = data.matches.iter().position(|x| x.fingerprint == data.selected_result) {
+                        let mut idx = data.matches.len() - 1;
+                        if let Some(i) = data
+                            .matches
+                            .iter()
+                            .position(|x| x.fingerprint == data.selected_result)
+                        {
                             idx = i.saturating_sub(1);
                         }
-                        ctx.submit_command(
-                            REPOSITION
-                                .with(Rect::from_origin_size(
-                                    (0., BOOK_CARD_HEIGHT * idx as f64),
-                                    (10., BOOK_CARD_HEIGHT),
-                                ))
-                                .to(LIST_WIDGET_ID),
-                        );
-
-                        data.selected_result = data
-                            .matches
-                            .get(idx)
-                            .unwrap()
-                            .fingerprint
-                            .clone();
+                        data.select_item(ctx, idx);
                     }
                     druid::keyboard_types::Key::Enter => {
                         ctx.submit_command(
@@ -402,11 +394,10 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
                         );
                     }
                     _ => {
-
                         //                        println!("{}",e.key);
                         child.event(ctx, event, data, env);
 
-                       data.find_matches();
+                        data.find_matches();
                     }
                 }
             }
@@ -414,7 +405,7 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
                 //println!("{:?}",event);
                 child.event(ctx, event, data, env);
                 data.find_matches();
-}
+            }
         }
     }
 
@@ -427,14 +418,14 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
         env: &Env,
     ) {
         match event {
-            LifeCycle::HotChanged(now) => child.lifecycle(ctx, event, data, env),
+            LifeCycle::HotChanged(_now) => child.lifecycle(ctx, event, data, env),
             _ => child.lifecycle(ctx, event, data, env),
         }
     }
 }
 
 // `candidate` must contain all the characters of `filter`, in the same order, not necessarily next to each other
-fn fuzzy_match_word(candidate: &String, filter: &String) -> bool {
+fn fuzzy_match_word(candidate: &str, filter: &str) -> bool {
     let mut q = filter.chars();
     let mut c = candidate.chars();
     let mut qh: Option<char>;
@@ -456,7 +447,7 @@ fn fuzzy_match_word(candidate: &String, filter: &String) -> bool {
     }
 }
 
-fn fuzzy_match(candidate: &String, filter: &String) -> bool {
+fn fuzzy_match(candidate: &str, filter: &str) -> bool {
     let words = &mut candidate.split_whitespace(); //.split("-").split("_").split(".").split("/").split("\\");
 
     for filter_word in filter.split_whitespace() {

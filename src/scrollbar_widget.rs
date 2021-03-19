@@ -31,7 +31,6 @@ use std::time::Instant;
 //#[derive(Default)]
 pub struct ScrollbarWidget {
     length: usize,
-    reverse_bookmarks: BTreeMap<usize, String>,
     scrollbar: Box<dyn Scrollbar>,
     last_size_change: Instant,
 }
@@ -47,13 +46,6 @@ struct Fractal {
     order: u32,
     origin: Point,
     scale: f64,
-}
-
-fn px(p: Point, x: f64) -> Point {
-    Point {
-        x: p.x * x,
-        y: p.y * x,
-    }
 }
 
 impl Fractal {
@@ -74,17 +66,12 @@ impl Fractal {
                 acc.push(origin + u * 0.25 + v * 0.25);
             }
             _ => {
-                let distortion = 0.05;
                 let a = 0.015;
-                let b = 0.075; //distortion * 2.;
+                let b = 0.075;
                 let sa = f64::sin(a);
                 let ca = f64::cos(a);
                 let sb = f64::sin(b);
                 let cb = f64::cos(b);
-
-                let notches = 1_u32.overflowing_shl(order + 1).0 as f64;
-                let sp = 1. / (notches - 2.);
-                let enl = (notches - 2.) / notches;
 
                 let scale = 0.5 / (ca + sb);
 
@@ -181,28 +168,28 @@ impl Scrollbar for Fractal {
                 self.per_square = usize::pow(4, self.order);
 
                 let notches = 1_u32.overflowing_shl(self.order + 1).0 as f64;
-                let sp = 1. / (notches - 2.);
                 let enlargen = notches / (notches - 2.);
 
-                let mut r = Rect::new(0., 0.5, 0., 0.5);
+                let mut extent = Rect::new(0., 0.5, 0., 0.5);
                 for p in &self.square {
-                    r.x0 = r.x0.min(p.x * enlargen);
-                    r.x1 = r.x1.max(p.x * enlargen);
-                    r.y0 = r.y0.min(p.y * enlargen);
-                    r.y1 = r.y1.max(p.y * enlargen);
+                    extent.x0 = extent.x0.min(p.x);
+                    extent.x1 = extent.x1.max(p.x);
+                    extent.y0 = extent.y0.min(p.y);
+                    extent.y1 = extent.y1.max(p.y);
                 }
 
-                let w = r.width();
-                let h = r.height();
+                let w = extent.width();
+                let h = extent.height();
                 for p in &mut self.square {
-                    let u = (p.x - r.x0) / w;
-                    let v = (p.y - r.y0 + (1. - h / enlargen) / 2.) / w;
+                    #[allow(clippy::suspicious_operation_groupings)]
+                    let u = (p.x - extent.x0) / (w * enlargen);
+                    let v = (p.y - extent.y0 + (1. - h) / 2.) / (w * enlargen);
                     p.x = v;
                     p.y = u;
                 }
             }
 
-            let extent = (((self.length as f64 / self.per_square.max(1) as f64) * 2.).ceil() / 2.);
+            let extent = ((self.length as f64 / self.per_square.max(1) as f64) * 2.).ceil() / 2.;
 
             if extent > ratio {
                 self.scale = max / extent;
@@ -227,21 +214,22 @@ impl Scrollbar for Fractal {
             //            println!(" {} {} {}", order, self.per_square, squares);
         }
     }
-    fn position(&self, idx: usize) -> Point {
-        let u;
-        let v;
 
-        if self.container.height > self.container.width {
-            v = Vec2::new(1., 0.);
-            u = Vec2::new(0., 1.);
-        } else {
-            u = Vec2::new(0., 1.);
-            v = Vec2::new(1., 0.);
-        }
+    fn position(&self, idx: usize) -> Point {
+        // let u;
+        // let v;
+
+        // if self.container.height > self.container.width {
+        //     v = Vec2::new(1., 0.);
+        //     u = Vec2::new(0., 1.);
+        // } else {
+        //     u = Vec2::new(0., 1.);
+        //     v = Vec2::new(1., 0.);
+        // }
 
         let mut ox = self.origin.x;
         let mut oy = self.origin.y;
-        let p = if self.square.len() == 0 {
+        let p = if self.square.is_empty() {
             Point::new(0.5, 0.5)
         } else {
             self.square[idx % self.per_square.max(1)]
@@ -255,9 +243,8 @@ impl Scrollbar for Fractal {
             Point::new(ox + p.y * self.scale, oy + p.x * self.scale)
         }
     }
+
     fn nearest(&self, p: Point) -> usize {
-        let max = f64::max(self.container.width, self.container.height);
-        let min = f64::min(self.container.width, self.container.height);
         let square;
         let u;
         let v;
@@ -372,7 +359,6 @@ impl ScrollbarWidget {
     pub fn with_layout_and_length(layout: ScrollbarLayout, length: usize) -> Self {
         ScrollbarWidget {
             length,
-            reverse_bookmarks: BTreeMap::<usize, String>::new(),
             scrollbar: if layout == ScrollbarLayout::Grid {
                 Box::new(Grid::with_length(length))
             } else {
@@ -531,7 +517,7 @@ impl Widget<PdfViewState> for ScrollbarWidget {
     // The paint method gets called last, after an event flow.
     // It goes event -> update -> layout -> paint, and each method can influence the next.
     // Basically, anything that changes the appearance of a widget causes a paint.
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &PdfViewState, env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &PdfViewState, _env: &Env) {
         // Clear the whole widget with the color of your choice
         // (ctx.size() returns the size of the layout rect we're painting in)
         // Note: ctx also has a `clear` method, but that clears the whole context,
@@ -546,7 +532,7 @@ impl Widget<PdfViewState> for ScrollbarWidget {
         // after the rest of the painting. Painting with z-index is done in order,
         // so first everything with z-index 1 is painted and then with z-index 2 etc.
         // As you can see this(red) curve is drawn on top of the green curve
-        ctx.paint_with_z_index(1, move |ctx| {
+        ctx.paint_with_z_index(1, move |_ctx| {
             // let mut path = BezPath::new();
             // path.move_to((0.0, size.height));
             // path.quad_to((40.0, 50.0), (size.width, 0.0));
@@ -595,10 +581,10 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                     }
                 }
 
-                if colours.len() == 0 {
+                if colours.is_empty() {
                     ctx.fill(Circle::new(pos, si * 0.2), &color);
                 } else {
-                    let path = BezPath::new();
+//                    let path = BezPath::new();
                     let mut start_angle = 0.;
 
                     let sweep_angle = std::f64::consts::PI * 2. / colours.len() as f64;
@@ -618,7 +604,6 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                 }
 
                 if i == page_number {
-                    color = Color::WHITE;
                     ctx.stroke(Circle::new(pos, si * 0.35), &Color::grey(0.7), 3.);
                 }
 

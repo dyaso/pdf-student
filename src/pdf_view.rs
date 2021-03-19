@@ -88,6 +88,11 @@ impl PageOverviewPosition {
     }
 }
 
+pub enum SearchState {
+    NotSearching,
+    Searching (PageNum,PageNum)
+}
+
 #[derive(Clone, Data, Lens)]
 pub struct PdfViewState {
     pub docu_idx: usize,
@@ -123,7 +128,7 @@ pub struct PdfViewState {
 
     // unused?
     pub scrollbar_size: Size,
-    pub contents_size: Size,
+    
 }
 
 impl PdfViewState {
@@ -161,7 +166,6 @@ impl PdfViewState {
             mouse_over_hyperlink: None,
 
             scrollbar_size: Size::ZERO,
-            contents_size: Size::ZERO,
         }
     }
 
@@ -489,8 +493,8 @@ impl PdfViewState {
             .weighted_page_margins_in_normalized_coords(page_number, crop_weight);
 
         let mut page_size = self.document.get_page_size_in_points(page_number);
-        page_size.width = page_size.width * crop_rect.width();
-        page_size.height = page_size.height * crop_rect.height();
+        page_size.width *= crop_rect.width();
+        page_size.height *= crop_rect.height();
 
         match self.scroll_direction {
             Axis::Horizontal => Size {
@@ -518,10 +522,11 @@ impl PdfViewState {
             };
 
         // tofix: find how to look up actual pixel density -- https://docs.rs/druid/0.7.0/druid/struct.Scale.html#converting-with-scale looks like it, but how to get a scale struct to start with?
+        #[allow(unused_mut)]
         let mut high_pixel_density_scaling = 1.;
         #[cfg(target_os = "macos")]
         {
-            high_pixel_density_scaling = 2.;
+            let high_pixel_density_scaling = 2.;
         }
 
         let matrix = Matrix::new_scale(
@@ -549,7 +554,7 @@ impl PdfViewState {
         let pxls = pixmap.samples_mut();
         for y in 0..h {
             for x in 0..w {
-                let p = (3 * (x + y * w));
+                let p = 3 * (x + y * w);
                 pxls[p] = process(pxls[p]);
                 pxls[p + 1] = process(pxls[p + 1]);
                 pxls[p + 2] = process(pxls[p + 2]);
@@ -620,7 +625,7 @@ impl PdfViewState {
                 let Size { width, height } = self.document.get_page_size_in_points(page_number);
 
                 let mut acc = Vector::<Hyperlink>::new();
-                if let Some(links) = page.links().ok() {
+                if let Ok(links) = page.links() {
                     for l in links {
                         let bounds = l.bounds;
                         acc.push_back(Hyperlink {
@@ -634,7 +639,7 @@ impl PdfViewState {
                         });
                     }
                 }
-                if acc.len() > 0 {
+                if ! acc.is_empty() {
                     self.document
                         .hyperlinks
                         .insert(page_number, Some(acc.clone()));
@@ -685,15 +690,18 @@ impl PdfViewState {
         self.set_visible_scroll_position(window_id, page_number, None);
     }
 
-
     // todo: prefer vertical scrolling unless at least two full pages can be visible horizontally
     // todo: multi-columns / -rows
     pub fn adjust_zoom(&mut self, ctx: &mut EventCtx, desired_scaling: f64) {
-        
         let page_points_size = self.document.get_page_size_in_points(self.page_number);
-        let page_size = self.document_info.weighted_page_margins_in_normalized_coords(self.page_number, self.crop_weight);
+        let page_size = self
+            .document_info
+            .weighted_page_margins_in_normalized_coords(self.page_number, self.crop_weight);
 
-        let page = Size::new(page_points_size.width*page_size.width(), page_points_size.height*page_size.height());
+        let page = Size::new(
+            page_points_size.width * page_size.width(),
+            page_points_size.height * page_size.height(),
+        );
 
         let window = ctx.size();
 
@@ -702,24 +710,26 @@ impl PdfViewState {
         match self.scroll_direction {
             Axis::Vertical => {
                 match self.scrollbar_position {
-                    PageOverviewPosition::East | PageOverviewPosition::West =>
-                        current_width = window.width * self.scrollbar_proportion,
+                    PageOverviewPosition::East | PageOverviewPosition::West => {
+                        current_width = window.width * self.scrollbar_proportion
+                    }
                     _ => current_width = window.width,
                 }
                 current_height = current_width * page.height / page.width;
-            },
+            }
             Axis::Horizontal => {
                 match self.scrollbar_position {
-                    PageOverviewPosition::North | PageOverviewPosition::South =>
-                        current_height = window.height * self.scrollbar_proportion,
+                    PageOverviewPosition::North | PageOverviewPosition::South => {
+                        current_height = window.height * self.scrollbar_proportion
+                    }
                     _ => current_height = window.height,
                 }
                 current_width = current_height * page.width / page.height;
             }
         }
 
-        let vert_prop_reqd = ((current_width * desired_scaling) / window.width);
-        let horiz_prop_reqd = ((current_height * desired_scaling) / window.height);
+        let vert_prop_reqd = (current_width * desired_scaling) / window.width;
+        let horiz_prop_reqd = (current_height * desired_scaling) / window.height;
 
         if vert_prop_reqd < 1. && horiz_prop_reqd < 1. {
             if horiz_prop_reqd > vert_prop_reqd {
@@ -731,21 +741,19 @@ impl PdfViewState {
                 self.scrollbar_position = PageOverviewPosition::East;
                 self.scrollbar_proportion = vert_prop_reqd;
             }
-        } else
-        if vert_prop_reqd >= 0.99 && horiz_prop_reqd >= 0.99 {
+        } else if vert_prop_reqd >= 0.99 && horiz_prop_reqd >= 0.99 {
             if self.scroll_direction == Axis::Vertical {
                 if desired_scaling > 0.99 {
                     self.scrollbar_position = PageOverviewPosition::South;
                 } else {
                     self.scrollbar_position = PageOverviewPosition::East;
                 }
+            } else if desired_scaling > 0.99 {
+                self.scrollbar_position = PageOverviewPosition::East;
             } else {
-                if desired_scaling > 0.99 {
-                    self.scrollbar_position = PageOverviewPosition::East;
-                } else {
-                    self.scrollbar_position = PageOverviewPosition::South;
-                }
+                self.scrollbar_position = PageOverviewPosition::South;
             }
+
             // if horiz_prop_reqd > vert_prop_reqd {
             //     self.scroll_direction = Axis::Horizontal;
             //     self.scrollbar_position = PageOverviewPosition::East;
@@ -759,7 +767,7 @@ impl PdfViewState {
             if vert_prop_reqd < 0.99 {
                 self.scroll_direction = Axis::Vertical;
                 self.scrollbar_position = PageOverviewPosition::East;
-                self.scrollbar_proportion = vert_prop_reqd;                
+                self.scrollbar_proportion = vert_prop_reqd;
             }
             if horiz_prop_reqd < 0.99 {
                 self.scroll_direction = Axis::Horizontal;
@@ -768,8 +776,11 @@ impl PdfViewState {
             }
         }
 
+
         if desired_scaling > 1. {
-//            self.page_image_cache.borrow_mut().clear();
+            // debug mode is slow at drawing pages, release mode very fast
+            #[cfg(not(debug_assertions))]
+            self.page_image_cache.borrow_mut().clear();
         }
     }
 }
@@ -813,8 +824,6 @@ impl ScopeTransfer for DocTransfer {
 // recent files
 // open file
 // notes window
-
-use crate::contents_tree::ContentsTree;
 
 pub fn make_pdf_view_window(
     app_state: &mut AppState,
@@ -876,7 +885,7 @@ pub fn make_pdf_view_window(
                             .solid_bar(true),
                         )
                     }
-                    (East , proportion)=> Box::new(
+                    (East, proportion) => Box::new(
                         Split::columns(
                             PdfTextWidget::new(),
                             // Split::rows(
@@ -895,7 +904,7 @@ pub fn make_pdf_view_window(
                         .draggable(true)
                         .solid_bar(true),
                     ),
-                    (West , proportion)=> Box::new(
+                    (West, proportion) => Box::new(
                         Split::columns(
                             ScrollbarWidget::with_layout_and_length(
                                 data.scrollbar_layout,
@@ -904,7 +913,7 @@ pub fn make_pdf_view_window(
                             PdfTextWidget::new(),
                             //HilbertCurve::new())
                         )
-                        .split_point(1.-*proportion)
+                        .split_point(1. - *proportion)
                         .draggable(true)
                         .solid_bar(true),
                     ),
@@ -920,7 +929,7 @@ pub fn make_pdf_view_window(
 
     // }
 
-    let mut new_win = WindowDesc::new(scope);
+    let new_win = WindowDesc::new(scope);
     let win_id = new_win.id;
     let info = &app_state
         .all_local_documents_info
@@ -937,9 +946,8 @@ pub fn make_pdf_view_window(
     let page_count = info.page_count;
     let user_facing_path = app_state.loaded_documents[doc_idx].user_facing_path.clone();
 
-    new_win.window_size((1024.,1024.))
-        .title(
-        move |data: &AppState, env: &Env| {
+    new_win.window_size((1024., 1024.)).title(
+        move |data: &AppState, _env: &Env| {
             format!(
                 "[{}/{}] {}",
                 // data.loaded_documents[doc_id].current_page_number_in_window_id
@@ -1030,7 +1038,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                                                             .title("Choose a PDF file to open")
                                                             .button_text("Open");
                                 ctx.submit_command(Command::new(druid::commands::SHOW_OPEN_PANEL,
-                                                                open_dialogue_options.clone(),
+                                                                open_dialogue_options,
                                                                 Target::Auto));
                             },
                             "i" =>
@@ -1044,11 +1052,14 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                             _ => (),
                         }
                     }
-                } else if e.key == Key::Character("+".to_string()) || e.key == Key::Character("=".to_string()) {
-//                    data.zoom_in(ctx);
+                } else if e.key == Key::Character("+".to_string())
+                    || e.key == Key::Character("=".to_string())
+                {
+                    //                    data.zoom_in(ctx);
                     data.adjust_zoom(ctx, 1.05);
-
-                } else if e.key == Key::Character("-".to_string()) || e.key == Key::Character("_".to_string()) {
+                } else if e.key == Key::Character("-".to_string())
+                    || e.key == Key::Character("_".to_string())
+                {
                     data.adjust_zoom(ctx, 0.95);
                 } else if e.key == Key::Tab {
                     if e.mods.shift() {
@@ -1110,7 +1121,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                         }
                     } else if s.len() == 1 {
                         let mut chr = s.chars();
-                        if let Some((ch)) = chr.next() {
+                        if let Some(ch) = chr.next() {
                             if ch.is_numeric() {
                                 if let Some(num) = char::to_digit(ch, 10) {
                                     data.document.doc_info_changed = true;
@@ -1176,7 +1187,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                         data.adjust_zoom(ctx, 0.95);
                     }
                 } else {
-                    let new_layout = data.scroll_by(
+                    data.scroll_by(
                         ctx.window_id(),
                         distance,
                         data.page_number,
@@ -1202,7 +1213,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
         env: &Env,
     ) {
         match event {
-            LifeCycle::HotChanged(now) => {
+            LifeCycle::HotChanged(_now) => {
                 if data.document.doc_info_changed && !ctx.is_hot() {
                     // save on focus lost
                     ctx.submit_command(
@@ -1242,7 +1253,7 @@ pub fn make_context_menu<T: Data>(data: &mut PdfViewState, page_number: PageNum)
         )
         .append_if(
             MenuItem::new(
-                LocalizedString::new("Page cropping uses a unique custom margin for this page"),
+                LocalizedString::new("Use a unique custom margin for this page"),
                 CUSTOMIZE_PAGE_CROP.with(page_number),
             )
             .selected_if(|| data.document_info.has_custom_margins(page_number)),
@@ -1250,9 +1261,7 @@ pub fn make_context_menu<T: Data>(data: &mut PdfViewState, page_number: PageNum)
         )
         .append_if(
             MenuItem::new(
-                LocalizedString::new(
-                    "Page cropping uses different margins for even- vs odd-numbered pages",
-                ),
+                LocalizedString::new("Use different margins for even- vs odd-numbered pages"),
                 TOGGLE_EVEN_ODD_PAGE_DISTINCTION.with(page_number),
             )
             .selected_if(|| data.document_info.are_even_and_odd_distinguished()),
@@ -1293,13 +1302,13 @@ pub fn make_context_menu<T: Data>(data: &mut PdfViewState, page_number: PageNum)
                 .color_inversion_rectangles
                 .get(&page_number)
             {
-                Some(rects) => rects.len() > 0,
+                Some(rects) => ! rects.is_empty(),
                 None => false,
             },
         )
         .append(
             MenuItem::new(LocalizedString::new("Refresh window"), REFRESH_PAGE_IMAGES)
-                .hotkey(SysMods::Cmd, "r"),
+                .hotkey(SysMods::None, Key::F5),
         )
         .append(
             MenuItem::new(

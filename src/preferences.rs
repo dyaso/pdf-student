@@ -227,10 +227,9 @@ impl<W: Widget<AppState>> Controller<AppState, W> for TextCopyPasteController {
                     && key_event.mods & Modifiers::CONTROL == Modifiers::CONTROL
                 {
                     ctx.submit_command(PASTE);
-                } else
                 // todo : make undo work
                 // also double click -> word select, triple click -> line select, ctrl-held cursor movement
-                if key_event.code == druid::Code::KeyZ
+                } else if key_event.code == druid::Code::KeyZ
                     && key_event.mods & Modifiers::CONTROL == Modifiers::CONTROL
                 {
                     ctx.submit_command(UNDO);

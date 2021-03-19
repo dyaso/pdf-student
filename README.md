@@ -7,7 +7,7 @@ This is a simplified clone of [SumatraPDF](https://en.wikipedia.org/wiki/Sumatra
  * quick jumps between multiple bookmarks
  * easy page cropping to trim wide margins and watermarks
  * a panel showing an overview of page tags in place of a scrollbar
- * arbitrary rectangle colour inversion, so you can have view of a page in comfortable light-against-dark but still see illustrations in as-printed colours
+ * arbitrary rectangle colour inversion, so you can view a page in comfortable light-against-dark but still see illustrations in as-printed colours
  * if you use Dropbox or a similar service you can sync your page positions, tags, and bookmarks between machines
 
 It can't do most things you might want from a PDF reader like edit forms, print, or select and copy text; it's just for reading books from screens.
@@ -18,7 +18,9 @@ Type `cargo run --release` in the terminal, it takes about 5 mins on my machine.
 
 ### Instructions
 
-It's meant to be mostly keyboard operated (use arrow keys to navigate, ctrl-+ and - to zoom), with keyboard shortcuts shown in the pop-up context menu. Mousing over the page overview panel temporarily shows pages in the main view to make browsing around quicker.
+It's meant to be mostly keyboard operated (use arrow keys to navigate, ctrl-+ and - to zoom, PgUp / PgDown to go to previous/next tagged page), with keyboard shortcuts shown in the pop-up context menu. Mousing over the page overview panel temporarily shows pages in the main view to make browsing around quicker.
+
+Double click to edit page cropping.
 
 Bookmarks are single letters: type a letter to assign it to the page you're on, then type it again later to jump back to that page. Press &lt;SPACE> to erase a bookmark.
 
@@ -32,4 +34,4 @@ Note that if you apply a tag or bookmark while mousing over a hyperlink, it's th
 
 Currently pages are only rendered when they first appear on screen, so if you resize the window after that they can become blurry. Hit F5 to refresh.
 
-There's no zoom-in function, but you can get a zoomed out effect by repositioning the overview panel (press &lt;TAB>) alongside the scroll direction (&lt;TAB>) and resizing it.
+There's no zoom-in function, but you can get a zoomed out effect by repositioning the overview panel (press &lt;TAB>) alongside the scroll direction (SHIFT-&lt;TAB>) and resizing it.
