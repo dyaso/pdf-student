@@ -157,6 +157,15 @@ impl Scrollbar for Fractal {
             if self.order != old_order {
                 self.square.clear();
 
+                if self.order == 0 {
+                    self.square.push(Point::new(0.5,0.5));
+                    self.origin.x = 0.;
+                    self.origin.y = 0.;
+                    self.scale = max/min;
+                    self.per_square = 1;
+                    return
+                }
+
                 Self::layout_square(
                     Point::new(0., 0.),
                     Vec2::new(1., 0.),
@@ -229,7 +238,7 @@ impl Scrollbar for Fractal {
 
         let mut ox = self.origin.x;
         let mut oy = self.origin.y;
-        let p = if self.square.is_empty() {
+        let p = if self.square.len() <= 1 {
             Point::new(0.5, 0.5)
         } else {
             self.square[idx % self.per_square.max(1)]
@@ -585,7 +594,7 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                 path2.line_to(pos.lerp(self.scrollbar.position(i+1), 0.5))
             }
             prev = pos;
-
+            
             ctx.paint_with_z_index(1, move |ctx| {
                 let mut color = Color::grey(0.35);
 

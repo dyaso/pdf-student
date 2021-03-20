@@ -35,3 +35,5 @@ Note that if you apply a tag or bookmark while mousing over a hyperlink, it's th
 Currently pages are only rendered when they first appear on screen, so if you resize the window after that they can become blurry. Hit F5 to refresh.
 
 There's no zoom-in function, but you can get a zoomed out effect by repositioning the overview panel (press &lt;TAB>) alongside the scroll direction (SHIFT-&lt;TAB>) and resizing it.
+
+A PDF file's built-in table of contents, should it exist, is ignored.

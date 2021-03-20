@@ -539,12 +539,14 @@ impl AppState {
 
     // returns index of the file buffer if loading was successful
     pub fn load_file(&mut self, path: &Path) -> Option<usize> {
-        if !path.exists() {
-            return None;
+        if ! path.exists() {
+            println!("file doesn't seem to exist: {}", path.display());
+            return None
         }
-        let path_string: String = path
+        let canon = path
             .canonicalize()
-            .expect("unable to canonicalize file path")
+            .expect("unable to canonicalize file path");
+        let path_string: String = canon
             .to_str()
             .expect("filepath could not be converted to string")
             .to_string();
@@ -605,7 +607,7 @@ impl AppState {
                         doc_info.description.push_str(&res);
                     }
 
-                    if ! doc_info.description.is_empty() {
+                    if doc_info.description.is_empty() {
                         doc_info.description.push_str(user_facing_path.as_str());
                     }
 
@@ -816,9 +818,10 @@ impl AppDelegate<AppState> for Delegate {
         _env: &Env,
     ) -> Handled {
         if let Some(message) = cmd.get(RECEIVED_MESSAGE) {
+            println!("reciefves message");
             let args = message.split('\t');
             for arg in args {
-                if let Some(doc_id) = data.load_file(Path::new(arg)) {
+                if let Some(doc_id) = data.load_file(&Path::new(arg)) {
                     ctx.new_window(make_pdf_view_window(data, doc_id, None));
                 }
             }
@@ -983,7 +986,18 @@ fn main() -> Result<(), PlatformError> {
     match conn {
         // connected to a preexisting copy of ourselves, send them our command line args then quit
         Ok(mut conn) => {
-            let message = env::args().skip(1).collect::<Vec<String>>().join("\t");
+            // println!("sent message to twin");
+            let message = env::args().skip(1).filter_map(|arg| {
+                let path = PathBuf::from(arg);
+                if ! path.exists() {
+                    None
+                } else {
+                    match path.canonicalize() {
+                        Ok(p) => Some(p.to_string_lossy().to_owned().to_string()),
+                        Err(_) => None,
+                    }
+                }}
+                ).collect::<Vec<String>>().join("\t");
             conn.write_all(message.as_bytes()).unwrap();
         }
         Err(_) => {
@@ -1003,56 +1017,61 @@ fn main() -> Result<(), PlatformError> {
                 //                  .map(|u| u.unwrap())
                 .collect();
 
-            if !state.loaded_documents.is_empty() {
-                let launcher = AppLauncher::with_window(make_pdf_view_window(&mut state, 0, None))
+            let launcher;
+            if state.loaded_documents.is_empty() {
+                launcher = AppLauncher::with_window(crate::book_info_window::make_book_info_window(&state, 0))
+                    .delegate(Delegate::new(vec!()));
+            } else {
+                launcher = AppLauncher::with_window(make_pdf_view_window(&mut state, 0, None))
                     .delegate(Delegate::new(windows[1..].to_vec()));
+            }
 
-                let message_event_sink = launcher.get_external_handle();
-                std::thread::spawn(move || listen_for_messages(message_event_sink));
+            let message_event_sink = launcher.get_external_handle();
+            std::thread::spawn(move || listen_for_messages(message_event_sink));
 
-                //                if let Some(dir) = state.syncable_data_directory.clone() {
-                //if let Some(dir) = state.preferences.syncable_data_directory.clone() {
-                let file_change_notifications_event_sink = launcher.get_external_handle();
+            //                if let Some(dir) = state.syncable_data_directory.clone() {
+            //if let Some(dir) = state.preferences.syncable_data_directory.clone() {
+            let file_change_notifications_event_sink = launcher.get_external_handle();
 
-                let watcher: Result<RecommendedWatcher, notify::Error> =
-                    Watcher::new_immediate(move |res: Result<notify::event::Event, _>| {
-                        if let Ok(event) = res {
-                            // https://docs.rs/notify/5.0.0-pre.6/notify/event/enum.EventKind.html
-                            if let notify::EventKind::Access(notify::event::AccessKind::Close(
-                                notify::event::AccessMode::Write,
-                            )) = event.kind {
-                                for path_buf in event.paths {
-                                    if let Err(e) = file_change_notifications_event_sink.submit_command(
-                                        SYNCABLE_DIRECTORY_FILES_CHANGED,
-                                        Box::<PathBuf>::new(path_buf),
-                                        Target::Auto,
-                                    ) {
-                                        println!("error sending file change notification: {}",e);
-                                    }
+            let watcher: Result<RecommendedWatcher, notify::Error> =
+                Watcher::new_immediate(move |res: Result<notify::event::Event, _>| {
+                    if let Ok(event) = res {
+                        // https://docs.rs/notify/5.0.0-pre.6/notify/event/enum.EventKind.html
+                        if let notify::EventKind::Access(notify::event::AccessKind::Close(
+                            notify::event::AccessMode::Write,
+                        )) = event.kind {
+                            for path_buf in event.paths {
+                                if let Err(e) = file_change_notifications_event_sink.submit_command(
+                                    SYNCABLE_DIRECTORY_FILES_CHANGED,
+                                    Box::<PathBuf>::new(path_buf),
+                                    Target::Auto,
+                                ) {
+                                    println!("error sending file change notification: {}",e);
                                 }
                             }
                         }
-                    });
-                match watcher {
-                    Ok(mut w) => {
-                        let p = Path::new(&state.preferences.syncable_data_directory);
-                        if let Err(e) = w.watch(p, RecursiveMode::NonRecursive) {
-                            println!("problem trying to watch syncable data directory: {}", e);
-                        }
-
-                        state.filesystem_watcher = Some(Arc::new(w));
                     }
-                    Err(e) => println!("error making filesystem watcher: {}", e),
+                });
+            match watcher {
+                Ok(mut w) => {
+                    let p = Path::new(&state.preferences.syncable_data_directory);
+                    if let Err(e) = w.watch(p, RecursiveMode::NonRecursive) {
+                        println!("problem trying to watch syncable data directory: {}", e);
+                    }
+
+                    state.filesystem_watcher = Some(Arc::new(w));
                 }
-
-                // let (mut doc_info, _) = DocumentInfo::from_fingerprint(&PathBuf::from(&self.preferences
-                //                                                        .syncable_data_directory),
-                // }
-
-                launcher.launch(state)?;
+                Err(e) => println!("error making filesystem watcher: {}", e),
             }
+
+            // let (mut doc_info, _) = DocumentInfo::from_fingerprint(&PathBuf::from(&self.preferences
+            //                                                        .syncable_data_directory),
+            // }
+
+            launcher.launch(state)?;
+
+            let _ = fs::remove_file(Path::new(IPC_CONNECTION_NAME));
         }
     }
-    let _ = fs::remove_file(Path::new(IPC_CONNECTION_NAME));
     Ok(())
 }
