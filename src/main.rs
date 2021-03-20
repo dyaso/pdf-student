@@ -1037,9 +1037,12 @@ fn main() -> Result<(), PlatformError> {
                 Watcher::new_immediate(move |res: Result<notify::event::Event, _>| {
                     if let Ok(event) = res {
                         // https://docs.rs/notify/5.0.0-pre.6/notify/event/enum.EventKind.html
-                        if let notify::EventKind::Access(notify::event::AccessKind::Close(
-                            notify::event::AccessMode::Write,
-                        )) = event.kind {
+                        println!("umm {:?}", event.kind);
+                        if let notify::EventKind::Modify(_)
+                            // notify::event::AccessKind::Data(
+                            // notify::event::AccessMode::Write,
+                        // )) 
+                = event.kind {
                             for path_buf in event.paths {
                                 if let Err(e) = file_change_notifications_event_sink.submit_command(
                                     SYNCABLE_DIRECTORY_FILES_CHANGED,

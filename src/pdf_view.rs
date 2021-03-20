@@ -526,7 +526,7 @@ impl PdfViewState {
         let mut high_pixel_density_scaling = 1.;
         #[cfg(target_os = "macos")]
         {
-            let high_pixel_density_scaling = 2.;
+            high_pixel_density_scaling = 2.;
         }
 
         let matrix = Matrix::new_scale(
