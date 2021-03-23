@@ -2,19 +2,23 @@
 
 🚧 Very bare bones cross-platform PDF reader for non-fiction books where you want to jump around a lot.
 
-This is a simplified clone of [SumatraPDF](https://en.wikipedia.org/wiki/Sumatra_PDF) in Rust with a few different features:
+This is a simplified clone of [SumatraPDF](https://en.wikipedia.org/wiki/Sumatra_PDF) in Rust/[Druid](https://linebender.org/druid/) with a few different features:
  
  * quick jumps between multiple bookmarks
  * easy page cropping to trim wide margins and watermarks
  * a panel showing an overview of page tags in place of a scrollbar
- * arbitrary rectangle colour inversion, so you can view a page in comfortable light-against-dark but still see illustrations in as-printed colours
- * if you use Dropbox or a similar service you can sync your page positions, tags, and bookmarks between machines
+ * arbitrary rectangle colour inversion, so you can view a page in quiet light-text-against-dark-background but still see illustrations in as-printed colours
+ * if you use Dropbox or a similar service you can automatically sync your page positions, tags, and bookmarks between machines
 
 It can't do most things you might want from a PDF reader like edit forms, print, or select and copy text; it's just for reading books from screens.
 
 ### Installation
 
-Type `cargo run --release` in the terminal, it takes about 5 mins on my machine. You can also run it in debug mode (don't say `--release`) but then page rendering is unpleasantly slow.
+On NixOS 'unstable', run `nix-env -if default.nix`.
+
+To build from source on any system, install the `cargo` command [somehow](https://rustup.rs/) then run `cargo run --release` in the terminal (or leave out `--release` for a much slower, larger, debug build) and copy the executable file `./target/release/pdf-student` to somewhere listed in your shell's [search `PATH` environment variable](https://en.wikipedia.org/wiki/PATH_(variable)).
+
+Coming soon hopefully: pre-built mac and Windows binaries.
 
 ### Instructions
 

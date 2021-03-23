@@ -10,7 +10,6 @@ use druid::{
     ArcStr,
     Color,
     Command,
-    ContextMenu,
     DelegateCtx,
     FileDialogOptions,
     FileInfo,

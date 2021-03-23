@@ -27,7 +27,6 @@ use druid::{
     ArcStr,
     Color,
     Command,
-    ContextMenu,
     DelegateCtx,
     FileInfo,
     FontDescriptor,
@@ -97,6 +96,8 @@ mod book_info_window;
 
 mod preferences;
 use preferences::{make_preferences_window, Preferences};
+
+mod contents_tree;
 
 type PageNum = usize; // mupdf-rs uses i32, i'm not sure why it's signed
 

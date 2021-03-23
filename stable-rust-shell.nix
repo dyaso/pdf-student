@@ -10,13 +10,12 @@
 # this script found at https://eipi.xyz/blog/rust-overlay-nix-shell/
 
 with import <nixpkgs> {};
-with import <rustoverlay/rust-overlay.nix> pkgs pkgs;
 
 stdenv.mkDerivation {
   name = "rust-env";
   nativeBuildInputs = [
     libxkbcommon
-
+wrapGAppsHook
     # for druid
     cairo
     pango
@@ -30,13 +29,14 @@ stdenv.mkDerivation {
     pkgconfig
     x11
   ];
-  buildInputs = [
+  buildInputs = [ 
+    gtk3-x11
     latest.rustChannels.stable.rust
     # latest.rustChannels.nightly.rust
-  	    xorg.libXi
-  	    xorg.libXrandr
-  	    xorg.libXcursor
-   
+    xorg.libXi
+    xorg.libXrandr
+    xorg.libXcursor
+    wrapGAppsHook
     clang
     llvmPackages.libclang
   ];
@@ -49,16 +49,10 @@ stdenv.mkDerivation {
 
   RUST_BACKTRACE = 1;
 
+# dontWrapGApps = true;
+# preFixup = ''
+#     makeWrapperArgs+=("''${gappsWrapperArgs[@]}")
+#   '';
 
   }
 
-# stdenv.mkDerivation {
-#   name = "url-bot-rs";
-
-#   buildInputs = [
-#     latest.rustChannels.nightly.rust
-#     pkgconfig
-#     openssl
-#     sqlite
-#   ];
-# }

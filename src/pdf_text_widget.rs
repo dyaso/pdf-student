@@ -3,7 +3,7 @@ use druid::kurbo::{BezPath, Circle};
 use druid::piet::{FontFamily, ImageFormat, InterpolationMode, PietImage, Text, TextLayoutBuilder};
 use druid::widget::prelude::*;
 use druid::{
-    Affine, AppLauncher, Color, Command, ContextMenu, FontDescriptor, FontStyle, FontWeight,
+Menu,    Affine, AppLauncher, Color, Command, FontDescriptor, FontStyle, FontWeight,
     Handled, Lens, LocalizedString, MouseButton, Point, Rect, Selector, TextLayout, Vec2,
     WindowDesc, WindowId,
 };
@@ -626,9 +626,8 @@ impl Widget<PdfViewState> for PdfTextWidget {
             Event::MouseDown(e) => {
                 if e.button.is_right() {
                     let (page_number, _) = self.hover_target;
-                    let menu =
-                        ContextMenu::new(make_context_menu::<AppState>(data, page_number), e.pos);
-                    ctx.show_context_menu(menu);
+                    let menu = make_context_menu(data, page_number);
+                    ctx.show_context_menu(menu, e.pos);
                     data.ignore_next_mouse_move = true;
                 }
 

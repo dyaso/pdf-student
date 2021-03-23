@@ -7,7 +7,6 @@ use druid::{
     ArcStr,
     Color,
     Command,
-    ContextMenu,
     DelegateCtx,
     FileInfo,
     FontDescriptor,

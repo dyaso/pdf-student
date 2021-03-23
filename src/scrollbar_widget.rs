@@ -2,7 +2,7 @@ use druid::kurbo::{Arc, BezPath, Circle};
 use druid::piet::{FontFamily, ImageFormat, InterpolationMode, Text, TextLayoutBuilder};
 use druid::widget::prelude::*;
 use druid::{
-    Affine, AppLauncher, Color, ContextMenu, FontDescriptor, FontWeight, LocalizedString, MenuDesc,
+Menu,    Affine, AppLauncher, Color, FontDescriptor, FontWeight, LocalizedString,
     MenuItem, Point, Rect, Selector, TextLayout, Vec2, WindowDesc,
 };
 
@@ -428,8 +428,8 @@ impl Widget<PdfViewState> for ScrollbarWidget {
             }
             Event::MouseDown(e) => {
                 if e.button.is_right() {
-                    let menu = ContextMenu::new(make_context_menu::<AppState>(data), e.pos);
-                    ctx.show_context_menu(menu);
+                    let menu = make_context_menu(&data.scrollbar_layout);
+                    ctx.show_context_menu(menu, e.pos);
                 } else {
                     data.history.push_back(data.overview_selected_page);
                     data.select_page(data.page_number);
@@ -732,17 +732,20 @@ impl Widget<PdfViewState> for ScrollbarWidget {
 pub const SET_SCROLLBAR_LAYOUT_GRID: Selector = Selector::new("set-scrollbar-layout-grid");
 pub const SET_SCROLLBAR_LAYOUT_FRACTAL: Selector = Selector::new("set-scrollbar-layout-fractal");
 
-pub fn make_context_menu<T: Data>(data: &mut PdfViewState) -> MenuDesc<T> {
+pub fn make_context_menu(scrollbar_layout: &ScrollbarLayout) -> Menu<AppState> {
     let grid_label = LocalizedString::new("Grid layout");
     let fractal_label = LocalizedString::new("Fractal layout");
 
-    MenuDesc::empty()
-        .append(
-            MenuItem::new(grid_label, SET_SCROLLBAR_LAYOUT_GRID)
-                .selected_if(|| data.scrollbar_layout == ScrollbarLayout::Grid),
+    let sl = *scrollbar_layout;
+    Menu::empty()
+        .entry(
+            MenuItem::new(grid_label)
+            .on_activate(|ctx, _data: &mut AppState, _env| ctx.submit_command(SET_SCROLLBAR_LAYOUT_GRID))
+            .selected_if(move |_data, _env| sl == ScrollbarLayout::Grid),
         )
-        .append(
-            MenuItem::new(fractal_label, SET_SCROLLBAR_LAYOUT_FRACTAL)
-                .selected_if(|| data.scrollbar_layout == ScrollbarLayout::Fractal),
+        .entry(
+            MenuItem::new(fractal_label)
+            .on_activate(|ctx, _data: &mut AppState, _env| ctx.submit_command(SET_SCROLLBAR_LAYOUT_FRACTAL))
+            .selected_if(move |_data, _env| sl == ScrollbarLayout::Fractal)
         )
 }

@@ -3,8 +3,8 @@ use druid::kurbo::BezPath;
 use druid::piet::{FontFamily, ImageFormat, InterpolationMode, PietImage, Text, TextLayoutBuilder};
 use druid::widget::prelude::*;
 use druid::{
-    Affine, AppLauncher, Color, Command, ContextMenu, FileDialogOptions, FileSpec, FontDescriptor,
-    FontStyle, FontWeight, Handled, Lens, LocalizedString, MenuDesc, MenuItem, MouseButton,
+    Affine, AppLauncher, Color, Command, FileDialogOptions, FileSpec, FontDescriptor,
+    FontStyle, FontWeight, Handled, Lens, LocalizedString, Menu, MenuItem, MouseButton,
     MouseEvent, Point, Rect, Selector, SysMods, Target, TextLayout, Vec2, WindowDesc, WindowId,
 };
 
@@ -128,6 +128,7 @@ pub struct PdfViewState {
 
     // unused?
     pub scrollbar_size: Size,
+    pub contents_size: Size,
     
 }
 
@@ -166,6 +167,7 @@ impl PdfViewState {
             mouse_over_hyperlink: None,
 
             scrollbar_size: Size::ZERO,
+            contents_size: Size::ZERO,
         }
     }
 
@@ -825,6 +827,8 @@ impl ScopeTransfer for DocTransfer {
 // open file
 // notes window
 
+use crate::contents_tree::ContentsTree;
+
 pub fn make_pdf_view_window(
     app_state: &mut AppState,
     doc_idx: usize,
@@ -868,16 +872,16 @@ pub fn make_pdf_view_window(
                         Box::new(
                             Split::rows(
                                 PdfTextWidget::new(),
-                                // Split::columns(
-                                // ContentsTree::default(),
+                                Split::columns(
+                                ContentsTree::default(),
                                 ScrollbarWidget::with_layout_and_length(
                                     data.scrollbar_layout,
                                     data.document_info.page_count,
                                 ),
-                                //                 )
-                                //     .draggable(true)
-                                //     .solid_bar(true)
-                                //     .split_point(0.2),
+                                                )
+                                    .draggable(true)
+                                    .solid_bar(true)
+                                    .split_point(0.2),
                             )
                             //HilbertCurve::new())
                             .split_point(*proportion)
@@ -1229,7 +1233,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
 
 use std::convert::TryInto;
 
-pub fn make_context_menu<T: Data>(data: &mut PdfViewState, page_number: PageNum) -> MenuDesc<T> {
+pub fn make_context_menu(data: &mut PdfViewState, page_number: PageNum) -> Menu<AppState> {
     let scroll_vert = LocalizedString::new("Vertical page scroll direction");
     let scroll_horiz = LocalizedString::new("Horizontal page scroll direction");
 
@@ -1238,87 +1242,90 @@ pub fn make_context_menu<T: Data>(data: &mut PdfViewState, page_number: PageNum)
 
     let new_view = LocalizedString::new("New view window");
 
-    MenuDesc::empty()
-        .append(MenuItem::new(new_view, NEW_VIEW).hotkey(SysMods::Cmd, "n"))
-        .append(
+    let fingerprint = data.document_info.fingerprint.clone();
+    let fingerprint2 = data.document_info.fingerprint.clone();
+    // let page_number = data.document_info.page_number;
+
+    let mut menu = Menu::empty()
+        .entry(MenuItem::new(new_view)
+            .on_activate(|ctx, _data, _env| ctx.submit_command(NEW_VIEW))
+            .hotkey(SysMods::Cmd, "n"))
+        .entry(
             MenuItem::new(
                 if data.crop_weight == 0. {
                     finish_crop
                 } else {
                     start_crop
-                },
-                crate::pdf_view::TOGGLE_CROP_MODE,
-            )
-            .hotkey(SysMods::Cmd, "e"),
-        )
-        .append_if(
+                })
+            .on_activate(|ctx, _data, _env| ctx.submit_command(crate::pdf_view::TOGGLE_CROP_MODE))
+            .hotkey(SysMods::Cmd, "e")
+        );
+
+
+
+    if !data.in_reading_mode() {
+        menu = menu
+            .entry(
+                MenuItem::new(
+                    LocalizedString::new("Use a unique custom margin for this page"),
+                )
+                .on_activate(move |ctx, _data: &mut AppState, _env| ctx.submit_command(CUSTOMIZE_PAGE_CROP.with(page_number)))
+                .selected_if(move |data, _env| data.all_local_documents_info[&fingerprint].has_custom_margins(page_number)))
+            .entry(
+                MenuItem::new(
+                    LocalizedString::new("Use different margins for even- vs odd-numbered pages"))
+                .on_activate(move |ctx, _data: &mut AppState, _env| ctx.submit_command(TOGGLE_EVEN_ODD_PAGE_DISTINCTION.with(page_number)))
+                .selected_if(move |data, _env| data.all_local_documents_info[&fingerprint2].are_even_and_odd_distinguished()));
+    }
+
+    menu = menu.entry(
             MenuItem::new(
-                LocalizedString::new("Use a unique custom margin for this page"),
-                CUSTOMIZE_PAGE_CROP.with(page_number),
-            )
-            .selected_if(|| data.document_info.has_custom_margins(page_number)),
-            || !data.in_reading_mode(),
-        )
-        .append_if(
-            MenuItem::new(
-                LocalizedString::new("Use different margins for even- vs odd-numbered pages"),
-                TOGGLE_EVEN_ODD_PAGE_DISTINCTION.with(page_number),
-            )
-            .selected_if(|| data.document_info.are_even_and_odd_distinguished()),
-            || !data.in_reading_mode(),
-        )
-        .append(
-            MenuItem::new(
-                LocalizedString::new("Reposition 'scrollbar'"),
-                REPOSITION_OVERVIEW,
-            )
+                LocalizedString::new("Reposition 'scrollbar'"))
+            .on_activate(|ctx, _data, _env| ctx.submit_command(REPOSITION_OVERVIEW))
             .hotkey(SysMods::None, Key::Tab),
         )
-        .append(
+        .entry(
             MenuItem::new(
                 if data.scroll_direction == Axis::Vertical {
                     scroll_horiz
                 } else {
                     scroll_vert
                 },
-                SCROLL_DIRECTION_TOGGLE,
             )
-            .hotkey(SysMods::Shift, Key::Tab),
+            .on_activate(|ctx, _data, _env| ctx.submit_command(SCROLL_DIRECTION_TOGGLE))
+            .hotkey(SysMods::Shift, Key::Tab)
         )
-        .append(
+        .entry(
             MenuItem::new(
-                LocalizedString::new("Invert the colors of part of the page"),
-                START_INVERSION_AREA_SELECTION,
-            )
-            .hotkey(SysMods::Cmd, "i"),
-        )
-        .append_if(
-            MenuItem::new(
-                LocalizedString::new("Remove the most recent color inversion"),
-                REMOVE_COLOR_INVERSION_RECTANGLE.with(page_number),
-            ),
-            || match data
-                .document_info
+                LocalizedString::new("Invert the colors of part of the page"))
+            .on_activate(|ctx, _data, _env| ctx.submit_command(START_INVERSION_AREA_SELECTION))
+            .hotkey(SysMods::Cmd, "i"));
+
+    if let Some(rects) = data.document_info
                 .color_inversion_rectangles
-                .get(&page_number)
-            {
-                Some(rects) => ! rects.is_empty(),
-                None => false,
-            },
+                .get(&page_number) {
+                    if ! rects.is_empty() {
+                        menu = menu.entry(
+                            MenuItem::new(
+                                LocalizedString::new("Remove the most recent color inversion"))
+                            .on_activate(move |ctx, _data, _env| ctx.submit_command(REMOVE_COLOR_INVERSION_RECTANGLE.with(page_number)))
+                        );
+                    }
+                }
+
+    let doc_idx = data.docu_idx;
+    menu = menu.entry(
+            MenuItem::new(LocalizedString::new("Refresh window"))
+            .on_activate(|ctx, _data, _env| ctx.submit_command(REFRESH_PAGE_IMAGES))
+            .hotkey(SysMods::None, Key::F5))
+        .entry(
+            MenuItem::new(LocalizedString::new("Open another book..."))
+            .on_activate(move |ctx, _data, _env| ctx.submit_command(SHOW_BOOK_INFO.with(doc_idx)))
+            .hotkey(SysMods::Cmd, "b")
         )
-        .append(
-            MenuItem::new(LocalizedString::new("Refresh window"), REFRESH_PAGE_IMAGES)
-                .hotkey(SysMods::None, Key::F5),
-        )
-        .append(
-            MenuItem::new(
-                LocalizedString::new("Open another book..."),
-                SHOW_BOOK_INFO.with(data.docu_idx),
-            )
-            .hotkey(SysMods::Cmd, "b"),
-        )
-        .append(
-            MenuItem::new(LocalizedString::new("Preferences..."), SHOW_PREFERENCES)
-                .hotkey(SysMods::Cmd, "p"),
-        )
+        .entry(
+            MenuItem::new(LocalizedString::new("Preferences..."))
+            .on_activate(|ctx, _data, _env| ctx.submit_command(SHOW_PREFERENCES))
+            .hotkey(SysMods::Cmd, "p"));
+    menu
 }
