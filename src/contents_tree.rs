@@ -285,7 +285,7 @@ impl ContentsTree {
 
                 layout.draw(ctx, (0., 0.));
             } else {
-                if ! (-FRAC_PI_2 .. =FRAC_PI_2).contains(&end_angle) {
+                if ! (-FRAC_PI_2..=FRAC_PI_2).contains(&end_angle) {
                     posn.0 -= layout.size().width;
                 }
                 let rect = Rect::from_origin_size(posn, layout.size());
