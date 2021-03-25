@@ -159,6 +159,8 @@ pub struct DocumentInfo {
     most_recent_page: PageNum,
     #[serde(default)]
     page_count: PageNum,
+    #[serde(default)]
+    page_offset: i32,
     // #[serde(default)]
     // prerequistes: Vector<Fingerprint>,
     // #[serde(default)]
@@ -201,6 +203,7 @@ impl DocumentInfo {
             contents_page: 0,
             most_recent_page: 0,
             page_count: 0,
+            page_offset: 0,
 
             description: String::new(),
             // prerequistes: Vector::<Fingerprint>::new(),
@@ -819,6 +822,7 @@ impl AppDelegate<AppState> for Delegate {
         data: &mut AppState,
         _env: &Env,
     ) -> Handled {
+        println!("comv {:?}", cmd);
         if let Some(message) = cmd.get(RECEIVED_MESSAGE) {
             println!("reciefves message");
             let args = message.split('\t');

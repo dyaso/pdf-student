@@ -18,6 +18,8 @@ use crate::preferences::ScrollbarLayout;
 
 use crate::PageNum;
 
+use crate::find_goto_controllers::{START_SEARCH};
+
 trait Scrollbar {
     fn layout(&mut self, size: Size);
     fn position(&self, idx: usize) -> Point;
@@ -404,6 +406,29 @@ impl Widget<PdfViewState> for ScrollbarWidget {
         }
         data.scrollbar_size = ctx.size();
         match event {
+            Event::AnimFrame(num) => {
+                if let Some((first, last)) = data.search_progress {
+                    let mut new_first = first;
+                    let mut new_last = last;
+
+                    for i in 0..50 {
+                        if new_first > 0 {
+                            new_first -= 1;
+                            data.search_page(new_first);
+                        }
+                        if new_last < data.document_info.page_count - 1 {
+                            new_last += 1;
+                            data.search_page(new_last);
+                        }
+                    }
+
+                    if new_first != first || new_last != last {
+                        data.search_progress = Some((new_first, new_last));
+                        ctx.request_paint();
+                        ctx.request_anim_frame();
+                    }
+                }
+            },
             Event::MouseMove(e) => {
                 if data.ignore_next_mouse_move {
                     data.ignore_next_mouse_move = false;
@@ -438,6 +463,17 @@ impl Widget<PdfViewState> for ScrollbarWidget {
             }
 
             Event::Command(cmd) => match cmd {
+                _ if cmd.is(START_SEARCH) => {
+                    data.search_results.borrow_mut().clear();
+                    if data.find_goal == "" {
+                        data.search_progress = None;
+                        ctx.request_paint();
+                    } else {
+                        data.search_page(data.page_number);
+                        data.search_progress = Some((data.page_number, data.page_number));
+                    }
+                    ctx.request_anim_frame();
+                }
                 _ if cmd.is(SET_SCROLLBAR_LAYOUT_FRACTAL) => {
                     self.scrollbar = Box::new(Fractal::with_length(self.length));
                     data.scrollbar_layout = ScrollbarLayout::Fractal;
@@ -555,7 +591,17 @@ impl Widget<PdfViewState> for ScrollbarWidget {
 
         // Create an arbitrary bezier path
         let mut path = BezPath::new();
-        path.move_to(self.scrollbar.position(0));
+
+        let mut first_page_searched = 0;
+        let mut last_page_searched = self.length;
+        
+        if let Some((first,last)) = data.search_progress {
+            first_page_searched = first;
+            path.move_to(self.scrollbar.position(first));
+            last_page_searched = last;
+        } else {
+            path.move_to(self.scrollbar.position(0));
+        }
 
         let mut path2 = BezPath::new();
 
@@ -565,7 +611,9 @@ impl Widget<PdfViewState> for ScrollbarWidget {
         //let mut prev_colours = false;
 
         for i in 0..self.length {
-            self.scrollbar.connect(i, &mut path);
+            if i >= first_page_searched && i <= last_page_searched {
+                self.scrollbar.connect(i, &mut path);
+            }
 
             let pos = self.scrollbar.position(i);
             let si = self.scrollbar.gap_between_nodes();
@@ -638,6 +686,25 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                     ctx.stroke(Circle::new(pos, si * 0.5), &Color::WHITE, 4.);
                 }
             });
+
+            if let Some((first, end)) = data.search_progress {
+                if i >= first && i <= end {
+                    if let Some(rects) = data.search_results.borrow().get(&i) {
+
+                        if ! rects.is_empty() {
+                            ctx.paint_with_z_index(2, move |ctx| {
+                                let mut cross = BezPath::new();
+                                let s = 0.33;
+                                cross.move_to((pos.x-si*s, pos.y-si*s));
+                                cross.line_to((pos.x+si*s, pos.y+si*s));
+                                cross.move_to((pos.x+si*s, pos.y-si*s));
+                                cross.line_to((pos.x-si*s, pos.y+si*s));
+                                ctx.stroke(cross, &Color::WHITE, 3.);
+                            });
+                        }
+                    }
+                }
+            }
 
             if let Some(s) = data.document.check_for_bookmark(i) {
                 let color = Color::WHITE;

@@ -35,7 +35,7 @@ rustPlatform.buildRustPackage rec {
     '';
 
   checkPhase = "";
-  cargoSha256 = "sha256:1m8ydxdg7kwmj29r558i950c3pp0llfai18ghfd1jhq3w7fi4ynq";
+  cargoSha256 = "sha256:01bnsp37px5208g4x9xrrd1qgy8sa0v0m305gmh7hds69svcvd94";
   # "sha256:0000000000000000000000000000000000000000000000000000";
 
 strictDeps = false;

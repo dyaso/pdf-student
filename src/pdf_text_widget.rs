@@ -1087,6 +1087,19 @@ impl Widget<PdfViewState> for PdfTextWidget {
                     layout.draw(ctx, (x0, y0 - 30.));
                 }
 
+                // outline search results
+                let results = data.search_results.borrow();
+                if let Some(rects) = data.search_results.borrow().get(page_number) {
+                    for r in rects {
+                        ctx.stroke(Rect{
+                            x0: r.x0*image_size.width,
+                            x1: r.x1*image_size.width,
+                            y0: r.y0*image_size.height,
+                            y1: r.y1*image_size.height,
+                        }, &Color::rgb8(240,150,10), 2.);
+                    }
+                }
+
                 ctx.stroke(Rect { x0, y0, x1, y1 }, &color, 3.0);
 
                 if ctx.is_hot() {

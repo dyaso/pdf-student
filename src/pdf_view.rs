@@ -94,7 +94,7 @@ pub enum SearchState {
     Searching (PageNum,PageNum)
 }
 
-#[derive(Clone, Data, Copy)]
+#[derive(Clone, Data, Copy, PartialEq)]
 pub enum WindowMode {
     Normal,
     Goto(PageNum),
@@ -145,6 +145,11 @@ pub struct PdfViewState {
     
     pub window_mode: WindowMode,
     pub find_goal: String,
+    pub search_progress: Option<(PageNum, PageNum)>,
+    pub search_results: Rc<RefCell<BTreeMap<PageNum, Vec<Rect>>>>,
+    pub goto_page: String,
+    pub goto_offset: String,
+    
 }
 
 
@@ -186,7 +191,13 @@ impl PdfViewState {
             contents_size: Size::ZERO,
 
             window_mode: WindowMode::Normal,
+            
             find_goal: String::new(),
+            search_progress: None,
+            search_results: Rc::<RefCell<BTreeMap<PageNum, Vec<Rect>>>>::new(RefCell::<BTreeMap::<PageNum, Vec<Rect>>>::new(BTreeMap::<PageNum, Vec<Rect>>::new())),
+            goto_page: String::new(),
+            goto_offset: String::new(),
+
         }
     }
 
@@ -214,6 +225,10 @@ impl PdfViewState {
 
             mouse_over_hyperlink: None,
             find_goal: old.find_goal.clone(),
+            search_results: old.search_results.clone(),
+            goto_page: old.goto_page.clone(),
+            goto_offset: old.goto_offset.clone(),
+
             ..*old
         }
     }
@@ -805,6 +820,27 @@ impl PdfViewState {
             self.page_image_cache.borrow_mut().clear();
         }
     }
+
+    pub fn search_page(&mut self, page_num: PageNum) {
+        let page = self.document.load_page(page_num);
+        let mut results = self.search_results.borrow_mut();
+        let entry = results.entry(page_num).or_insert_with(Vec::<Rect>::new);
+
+        let size = page.bounds().expect("Unable to get page bounds");
+        let w = size.width() as f64;
+        let h = size.height() as f64;
+
+        let finds = page.search(&self.find_goal, 10);
+        if let Ok(finds) = finds {
+            for f in finds {
+                // println!("found {:?}", f);
+                entry.push(Rect {x0: f.ul.x as f64 / w, y0: f.ul.y as f64 /h, x1: f.lr.x as f64/w, y1: f.lr.y as f64/h});
+            }
+        }
+
+
+    }
+
 }
 
 use crate::Hyperlink;
@@ -929,7 +965,7 @@ fn pdf_view_switcher() -> ControllerHost<ViewSwitcher<PdfViewState, (PageOvervie
 }
 
 
-use crate::find_goto_controllers::make_find_ui;
+use crate::find_goto_controllers::{make_find_ui, make_goto_ui};
 
 pub fn make_pdf_view_window(
     app_state: &mut AppState,
@@ -962,7 +998,7 @@ pub fn make_pdf_view_window(
                         ),
                     WindowMode::Goto(_) => 
                         Box::new(Flex::column()
-                            .with_child(Label::new("GOTO"))
+                            .with_child(make_goto_ui())
                             .with_flex_child(pdf_view_switcher().expand(), 1.)),
                     WindowMode::Find(_) => 
                         Box::new(Flex::column()
@@ -1031,6 +1067,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
             Event::WindowConnected => {
                 ctx.submit_command(CHECK_FOR_WINDOWS_TO_OPEN);
                 ctx.request_focus();
+                ctx.set_handled();
             }
             Event::Command(cmd) => {
                 //                } else
@@ -1060,7 +1097,12 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                         data.page_image_cache.borrow_mut().remove(page_number);
                     }
                 } else if let Some(new_mode) = cmd.get(SET_WINDOW_MODE) {
-                    data.window_mode = *new_mode;
+                        println!("HII");
+                    if *new_mode == WindowMode::Normal { 
+                        ctx.request_focus();
+                        data.window_mode = *new_mode;
+                    }
+                        
                 } else {
                     child.event(ctx, event, data, env);
                 }
@@ -1099,14 +1141,25 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                                 ctx.submit_command(NEW_VIEW),
                             "b" => ctx.submit_command(SHOW_BOOK_INFO.with(data.docu_idx)),
                             "p" => ctx.submit_command(SHOW_PREFERENCES),
-                            "g" => data.window_mode = WindowMode::Goto(data.page_number),
+                            "g" => {
+                                let offset = data.document_info.page_offset;
+                                data.goto_page = (data.page_number as i32 - offset + 1).to_string();
+                                data.goto_offset = offset.to_string();
+
+                                data.window_mode = WindowMode::Goto(data.page_number);
+                            },
                             "f" => data.window_mode = WindowMode::Find(data.page_number),
+                            "j" => ctx.submit_command(SET_WINDOW_MODE.with(WindowMode::Normal)),
 
                             _ => (),
                         }
                     }
                 // } else if e.key == Key::Escape {
                 //     data.window_mode = WindowMode::Normal;
+                } else if e.key == Key::Character("/".to_string())
+                    || e.key == Key::F3
+                {
+                    data.window_mode = WindowMode::Find(data.page_number);
                 } else if e.key == Key::Character("+".to_string())
                     || e.key == Key::Character("=".to_string())
                 {
@@ -1121,18 +1174,6 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                         ctx.submit_command(crate::pdf_view::SCROLL_DIRECTION_TOGGLE);
                     } else {
                         data.scrollbar_position = data.scrollbar_position.next();
-                    }
-                } else if e.key == Key::Character("/".to_string()) {
-                    // todo - proper search function
-
-                    let page = data.document.load_page(data.page_number);
-
-                    let t = "type";
-                    let links = page.search(&t, 100);
-                    if let Ok(finds) = links {
-                        for f in finds {
-                            println!("found {:?}", f);
-                        }
                     }
                 } else if e.key == Key::Enter {
                     if data.page_number != data.overview_selected_page {
@@ -1221,6 +1262,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
             }
 
             Event::MouseDown(e) => {
+                ctx.request_focus();
                 if e.buttons.has_x1() {
                     if let Some(page) = data.history.pop_back() {
                         data.set_visible_scroll_position(ctx.window_id(), page, None);
