@@ -8,7 +8,7 @@ use druid::{
     MouseEvent, Point, Rect, Selector, SysMods, Target, TextLayout, Vec2, WindowDesc, WindowId,
 };
 
-use druid::widget::{
+use druid::widget::{ControllerHost,
     Align, Axis, Container, Controller, Flex, Label, LineBreaking, Padding, Painter, RadioGroup,
     Scope, ScopeTransfer, Slider, Split, TextBox, ViewSwitcher, WidgetExt,
 };
@@ -48,6 +48,7 @@ pub const REMOVE_COLOR_INVERSION_RECTANGLE: Selector<PageNum> =
 pub const SHOW_BOOK_INFO: Selector<usize> = Selector::new("show-book-info");
 pub const SAVE_DOCUMENT_INFO: Selector<Fingerprint> = Selector::new("save-document-info");
 pub const REPOSITION_OVERVIEW: Selector = Selector::new("reposition-overview");
+pub const SET_WINDOW_MODE: Selector<WindowMode> = Selector::new("set-window-mode");
 
 use crate::pdf_text_widget::lerp_rect;
 use crate::AppState;
@@ -89,9 +90,24 @@ impl PageOverviewPosition {
 }
 
 pub enum SearchState {
-    NotSearching,
+    NotSearching (String),
     Searching (PageNum,PageNum)
 }
+
+#[derive(Clone, Data, Copy)]
+pub enum WindowMode {
+    Normal,
+    Goto(PageNum),
+    Find(PageNum),
+    //Search(PageNum,String)
+    // Search(String),
+    // SearchActive(String, PageNum, PageNum)
+}
+
+impl Default for WindowMode {
+    fn default() -> Self { Self::Normal }
+}
+
 
 #[derive(Clone, Data, Lens)]
 pub struct PdfViewState {
@@ -116,9 +132,6 @@ pub struct PdfViewState {
 
     //    pub page_image_cache: Rc<RefCell<BTreeMap<i32, PietImage>>>,
 
-    // window_id: Option<WindowId>,
-    //   pub doubleclick_action: DoubleClickAction,
-
     // on linux there's a seemingly random-positioned mouse move event when a context menu is closed, ignore it for now
     pub ignore_next_mouse_move: bool,
 
@@ -130,7 +143,10 @@ pub struct PdfViewState {
     pub scrollbar_size: Size,
     pub contents_size: Size,
     
+    pub window_mode: WindowMode,
+    pub find_goal: String,
 }
+
 
 impl PdfViewState {
     pub fn new(
@@ -168,6 +184,9 @@ impl PdfViewState {
 
             scrollbar_size: Size::ZERO,
             contents_size: Size::ZERO,
+
+            window_mode: WindowMode::Normal,
+            find_goal: String::new(),
         }
     }
 
@@ -194,6 +213,7 @@ impl PdfViewState {
             mouse_state: MouseState::Undragged,
 
             mouse_over_hyperlink: None,
+            find_goal: old.find_goal.clone(),
             ..*old
         }
     }
@@ -829,13 +849,94 @@ impl ScopeTransfer for DocTransfer {
 
 use crate::contents_tree::ContentsTree;
 
+fn pdf_view_switcher() -> ControllerHost<ViewSwitcher<PdfViewState, (PageOverviewPosition, f64)>, PdfWindowController> {
+    use PageOverviewPosition::*;
+
+    ViewSwitcher::new(
+        |data: &PdfViewState, _env| (data.scrollbar_position, data.scrollbar_proportion),
+        |selector, data: &PdfViewState, _env| match selector {
+            (North, proportion) => Box::new(
+                Split::rows(
+                    ScrollbarWidget::with_layout_and_length(
+                        data.scrollbar_layout,
+                        data.document_info.page_count,
+                    ),
+                    PdfTextWidget::new(),
+                )
+                //HilbertCurve::new())
+                .split_point(1. - *proportion)
+                .draggable(true)
+                .solid_bar(true),
+            ),
+            (South, proportion) => 
+                Box::new(
+                    Split::rows(
+                        PdfTextWidget::new(),
+                        Split::columns(
+                        ContentsTree::default(),
+                        ScrollbarWidget::with_layout_and_length(
+                            data.scrollbar_layout,
+                            data.document_info.page_count,
+                        ),
+                                        )
+                            .draggable(true)
+                            .solid_bar(true)
+                            .split_point(0.2),
+                    )
+                    //HilbertCurve::new())
+                    .split_point(*proportion)
+                    .draggable(true)
+                    .solid_bar(true),
+                )
+            ,
+            (East, proportion) => Box::new(
+                Split::columns(
+                    PdfTextWidget::new(),
+                    // Split::rows(
+                    //     ContentsTree::default(),
+                    ScrollbarWidget::with_layout_and_length(
+                        data.scrollbar_layout,
+                        data.document_info.page_count,
+                    ),
+                    //             )
+                    // .draggable(true)
+                    // .solid_bar(true)
+                    // .split_point(0.8),
+                    //HilbertCurve::new())
+                )
+                .split_point(*proportion)
+                .draggable(true)
+                .solid_bar(true),
+            ),
+            (West, proportion) => Box::new(
+                Split::columns(
+                    ScrollbarWidget::with_layout_and_length(
+                        data.scrollbar_layout,
+                        data.document_info.page_count,
+                    ),
+                    PdfTextWidget::new(),
+                    //HilbertCurve::new())
+                )
+                .split_point(1. - *proportion)
+                .draggable(true)
+                .solid_bar(true),
+            ),
+            (Nowhere, _) => Box::new(PdfTextWidget::new()),
+        },
+    )
+    .controller(PdfWindowController)
+
+}
+
+
+use crate::find_goto_controllers::make_find_ui;
+
 pub fn make_pdf_view_window(
     app_state: &mut AppState,
     doc_idx: usize,
     old_view: Option<PdfViewState>,
 ) -> WindowDesc<AppState> // impl Widget<AppState>
 {
-    use PageOverviewPosition::*;
 
     let scope = Scope::from_function(
         move |data: AppState| match &old_view {
@@ -852,80 +953,23 @@ pub fn make_pdf_view_window(
         },
         DocTransfer,
         Container::new(
-            ViewSwitcher::new(
-                |data: &PdfViewState, _env| (data.scrollbar_position, data.scrollbar_proportion),
-                |selector, data: &PdfViewState, _env| match selector {
-                    (North, proportion) => Box::new(
-                        Split::rows(
-                            ScrollbarWidget::with_layout_and_length(
-                                data.scrollbar_layout,
-                                data.document_info.page_count,
-                            ),
-                            PdfTextWidget::new(),
-                        )
-                        //HilbertCurve::new())
-                        .split_point(1. - *proportion)
-                        .draggable(true)
-                        .solid_bar(true),
-                    ),
-                    (South, proportion) => {
-                        Box::new(
-                            Split::rows(
-                                PdfTextWidget::new(),
-                                Split::columns(
-                                ContentsTree::default(),
-                                ScrollbarWidget::with_layout_and_length(
-                                    data.scrollbar_layout,
-                                    data.document_info.page_count,
-                                ),
-                                                )
-                                    .draggable(true)
-                                    .solid_bar(true)
-                                    .split_point(0.2),
-                            )
-                            //HilbertCurve::new())
-                            .split_point(*proportion)
-                            .draggable(true)
-                            .solid_bar(true),
-                        )
-                    }
-                    (East, proportion) => Box::new(
-                        Split::columns(
-                            PdfTextWidget::new(),
-                            // Split::rows(
-                            //     ContentsTree::default(),
-                            ScrollbarWidget::with_layout_and_length(
-                                data.scrollbar_layout,
-                                data.document_info.page_count,
-                            ),
-                            //             )
-                            // .draggable(true)
-                            // .solid_bar(true)
-                            // .split_point(0.8),
-                            //HilbertCurve::new())
-                        )
-                        .split_point(*proportion)
-                        .draggable(true)
-                        .solid_bar(true),
-                    ),
-                    (West, proportion) => Box::new(
-                        Split::columns(
-                            ScrollbarWidget::with_layout_and_length(
-                                data.scrollbar_layout,
-                                data.document_info.page_count,
-                            ),
-                            PdfTextWidget::new(),
-                            //HilbertCurve::new())
-                        )
-                        .split_point(1. - *proportion)
-                        .draggable(true)
-                        .solid_bar(true),
-                    ),
-                    (Nowhere, _) => Box::new(PdfTextWidget::new()),
-                },
-            )
-            .controller(PdfWindowController), // Box::new(Label::new("Things"))
-                                              // )
+            ViewSwitcher::new(|data: &PdfViewState, _env| data.window_mode,
+            |selector, data: &PdfViewState, _env|
+                match selector {
+                    WindowMode::Normal => Box::new(
+                        pdf_view_switcher()
+
+                        ),
+                    WindowMode::Goto(_) => 
+                        Box::new(Flex::column()
+                            .with_child(Label::new("GOTO"))
+                            .with_flex_child(pdf_view_switcher().expand(), 1.)),
+                    WindowMode::Find(_) => 
+                        Box::new(Flex::column()
+                            .with_flex_child(pdf_view_switcher().expand(), 1.)
+                            .with_child(make_find_ui())),
+                }
+                )
         ),
     );
 
@@ -1015,6 +1059,8 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                         rects.pop_back();
                         data.page_image_cache.borrow_mut().remove(page_number);
                     }
+                } else if let Some(new_mode) = cmd.get(SET_WINDOW_MODE) {
+                    data.window_mode = *new_mode;
                 } else {
                     child.event(ctx, event, data, env);
                 }
@@ -1053,9 +1099,14 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                                 ctx.submit_command(NEW_VIEW),
                             "b" => ctx.submit_command(SHOW_BOOK_INFO.with(data.docu_idx)),
                             "p" => ctx.submit_command(SHOW_PREFERENCES),
+                            "g" => data.window_mode = WindowMode::Goto(data.page_number),
+                            "f" => data.window_mode = WindowMode::Find(data.page_number),
+
                             _ => (),
                         }
                     }
+                // } else if e.key == Key::Escape {
+                //     data.window_mode = WindowMode::Normal;
                 } else if e.key == Key::Character("+".to_string())
                     || e.key == Key::Character("=".to_string())
                 {

@@ -98,6 +98,7 @@ mod preferences;
 use preferences::{make_preferences_window, Preferences};
 
 mod contents_tree;
+mod find_goto_controllers;
 
 type PageNum = usize; // mupdf-rs uses i32, i'm not sure why it's signed
 
