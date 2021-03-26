@@ -3,9 +3,9 @@ use druid::kurbo::{BezPath, Circle};
 use druid::piet::{FontFamily, ImageFormat, InterpolationMode, PietImage, Text, TextLayoutBuilder};
 use druid::widget::prelude::*;
 use druid::{
-Menu,    Affine, AppLauncher, Color, Command, FontDescriptor, FontStyle, FontWeight,
-    Handled, Lens, LocalizedString, MouseButton, Point, Rect, Selector, TextLayout, Vec2,
-    WindowDesc, WindowId,
+    Affine, AppLauncher, Color, Command, FontDescriptor, FontStyle, FontWeight, Handled, Lens,
+    LocalizedString, Menu, MouseButton, Point, Rect, Selector, TextLayout, Vec2, WindowDesc,
+    WindowId,
 };
 
 use druid::widget::Axis;
@@ -59,8 +59,8 @@ enum AnimationState {
 enum AnimationField {
     None,
     Crop(f64, f64),
-//    Scale,
-//    Direction,
+    //    Scale,
+    //    Direction,
 }
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -143,7 +143,7 @@ impl PdfTextWidget {
                 data.text_viewer_size,
                 target,
                 // make sure we have new positions for all pages currently visible
-                if ! self.page_positions_before_animating.is_empty() {
+                if !self.page_positions_before_animating.is_empty() {
                     let (min, max) = min_max_keys(&self.page_positions_before_animating);
                     Some((min, max))
                 } else {
@@ -252,23 +252,23 @@ impl PdfTextWidget {
     fn create_color_inversion_rect(&mut self, data: &mut PdfViewState) {
         let (page_number, _) = self.hover_target;
         //if let Some(screen_rect) = self.page_positions_before_animating.get(&page_number) {
-            let one_corner =
-                self.page_coords_of_screen_point(data, page_number, self.last_mouse_position);
+        let one_corner =
+            self.page_coords_of_screen_point(data, page_number, self.last_mouse_position);
 
-            let other_corner = Point::new(
-                if one_corner.x > 0.5 { 0.4 } else { 0.6 },
-                if one_corner.y > 0.5 { 0.4 } else { 0.6 },
-            );
+        let other_corner = Point::new(
+            if one_corner.x > 0.5 { 0.4 } else { 0.6 },
+            if one_corner.y > 0.5 { 0.4 } else { 0.6 },
+        );
 
-            let rs = data
-                .document_info
-                .color_inversion_rectangles
-                .entry(page_number)
-                .or_insert_with(Vector::<Rect>::new);
+        let rs = data
+            .document_info
+            .color_inversion_rectangles
+            .entry(page_number)
+            .or_insert_with(Vector::<Rect>::new);
 
-            rs.push_back(Rect::from_points(one_corner, other_corner));
+        rs.push_back(Rect::from_points(one_corner, other_corner));
 
-            data.page_image_cache.borrow_mut().remove(&page_number);
+        data.page_image_cache.borrow_mut().remove(&page_number);
         //}
     }
 
@@ -513,7 +513,7 @@ impl PdfTextWidget {
                 VerticalDirection::Neither
             };
 
-            return (closest, HoverTarget::CropMarks(left_right, up_down))
+            return (closest, HoverTarget::CropMarks(left_right, up_down));
         }
         self.hover_target
     }
@@ -680,18 +680,19 @@ impl Widget<PdfViewState> for PdfTextWidget {
                 if e.button.is_right() {}
                 if e.button.is_left() {
                     if let MouseState::ColourInversionRect(
+                        page_number,
+                        mouse_offset,
+                        other_corner,
+                    ) = data.mouse_state
+                    {
+                        ctx.set_active(false);
+                        self.finish_color_inversion_rect_drag(
+                            ctx,
+                            data,
                             page_number,
                             mouse_offset,
                             other_corner,
-                        ) = data.mouse_state {
-                            ctx.set_active(false);
-                            self.finish_color_inversion_rect_drag(
-                                ctx,
-                                data,
-                                page_number,
-                                mouse_offset,
-                                other_corner
-                            );
+                        );
                     }
                 }
                 data.mouse_state = MouseState::Undragged;
@@ -1091,12 +1092,16 @@ impl Widget<PdfViewState> for PdfTextWidget {
                 let results = data.search_results.borrow();
                 if let Some(rects) = data.search_results.borrow().get(page_number) {
                     for r in rects {
-                        ctx.stroke(Rect{
-                            x0: r.x0*image_size.width,
-                            x1: r.x1*image_size.width,
-                            y0: r.y0*image_size.height,
-                            y1: r.y1*image_size.height,
-                        }, &Color::rgb8(240,150,10), 2.);
+                        ctx.stroke(
+                            Rect {
+                                x0: r.x0 * image_size.width,
+                                x1: r.x1 * image_size.width,
+                                y0: r.y0 * image_size.height,
+                                y1: r.y1 * image_size.height,
+                            },
+                            &Color::rgb8(240, 150, 10),
+                            2.,
+                        );
                     }
                 }
 

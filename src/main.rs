@@ -544,9 +544,9 @@ impl AppState {
 
     // returns index of the file buffer if loading was successful
     pub fn load_file(&mut self, path: &Path) -> Option<usize> {
-        if ! path.exists() {
+        if !path.exists() {
             println!("file doesn't seem to exist: {}", path.display());
-            return None
+            return None;
         }
         let canon = path
             .canonicalize()
@@ -579,7 +579,10 @@ impl AppState {
                     let mut buf = [0; 1024];
 
                     if let Err(e) = file.read_exact(&mut buf) {
-                        println!("error reading PDF file to compute document fingerprint: {}",e);
+                        println!(
+                            "error reading PDF file to compute document fingerprint: {}",
+                            e
+                        );
                     }
                     let digest = md5::compute(&mut buf);
 
@@ -617,7 +620,7 @@ impl AppState {
                     }
 
                     if let Ok(res) = authors {
-                        if ! res.is_empty() {
+                        if !res.is_empty() {
                             doc_info.description.push_str(" by ");
                             doc_info.description.push_str(&res);
                         }
@@ -993,17 +996,21 @@ fn main() -> Result<(), PlatformError> {
         // connected to a preexisting copy of ourselves, send them our command line args then quit
         Ok(mut conn) => {
             // println!("sent message to twin");
-            let message = env::args().skip(1).filter_map(|arg| {
-                let path = PathBuf::from(arg);
-                if ! path.exists() {
-                    None
-                } else {
-                    match path.canonicalize() {
-                        Ok(p) => Some(p.to_string_lossy().to_owned().to_string()),
-                        Err(_) => None,
+            let message = env::args()
+                .skip(1)
+                .filter_map(|arg| {
+                    let path = PathBuf::from(arg);
+                    if !path.exists() {
+                        None
+                    } else {
+                        match path.canonicalize() {
+                            Ok(p) => Some(p.to_string_lossy().to_owned().to_string()),
+                            Err(_) => None,
+                        }
                     }
-                }}
-                ).collect::<Vec<String>>().join("\t");
+                })
+                .collect::<Vec<String>>()
+                .join("\t");
             conn.write_all(message.as_bytes()).unwrap();
         }
         Err(_) => {
@@ -1025,8 +1032,10 @@ fn main() -> Result<(), PlatformError> {
 
             let launcher;
             if state.loaded_documents.is_empty() {
-                launcher = AppLauncher::with_window(crate::book_info_window::make_book_info_window(&state, 0))
-                    .delegate(Delegate::new(vec!()));
+                launcher = AppLauncher::with_window(
+                    crate::book_info_window::make_book_info_window(&state, 0),
+                )
+                .delegate(Delegate::new(vec![]));
             } else {
                 launcher = AppLauncher::with_window(make_pdf_view_window(&mut state, 0, None))
                     .delegate(Delegate::new(windows[1..].to_vec()));

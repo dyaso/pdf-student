@@ -7,7 +7,7 @@ This is a simplified clone of [SumatraPDF](https://en.wikipedia.org/wiki/Sumatra
  * quick jumps between multiple bookmarks
  * easy page cropping to trim wide margins and watermarks
  * a panel showing an overview of page tags in place of a scrollbar
- * arbitrary rectangle colour inversion, so you can view a page in quiet light-text-against-dark-background but still see illustrations in as-printed colours
+ * arbitrary rectangle colour inversion, so you can view a page in quiet light-text-against-dark-background-o-vision but still see illustrations in as-printed colours
  * if you use Dropbox or a similar service you can automatically sync your page positions, tags, and bookmarks between machines
 
 It can't do most things you might want from a PDF reader like edit forms, print, or select and copy text; it's just for reading books from screens.

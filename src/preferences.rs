@@ -93,7 +93,7 @@ impl Preferences {
             doubleclick_action: DoubleClickAction::CropMode,
             syncable_data_directory,
             brightness_inversion_amount: 0.97,
-            scrollbar_layout: ScrollbarLayout::Fractal,
+            scrollbar_layout: ScrollbarLayout::Grid,
         }
     }
 }

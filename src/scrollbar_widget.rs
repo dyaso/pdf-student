@@ -2,8 +2,8 @@ use druid::kurbo::{Arc, BezPath, Circle};
 use druid::piet::{FontFamily, ImageFormat, InterpolationMode, Text, TextLayoutBuilder};
 use druid::widget::prelude::*;
 use druid::{
-Menu,    Affine, AppLauncher, Color, FontDescriptor, FontWeight, LocalizedString,
-    MenuItem, Point, Rect, Selector, TextLayout, Vec2, WindowDesc,
+    Affine, AppLauncher, Color, FontDescriptor, FontWeight, LocalizedString, Menu, MenuItem, Point,
+    Rect, Selector, TextLayout, Vec2, WindowDesc,
 };
 
 //use druid_shell::piet::Text;
@@ -18,7 +18,7 @@ use crate::preferences::ScrollbarLayout;
 
 use crate::PageNum;
 
-use crate::find_goto_controllers::{START_SEARCH};
+use crate::find_goto_controllers::START_SEARCH;
 
 trait Scrollbar {
     fn layout(&mut self, size: Size);
@@ -160,12 +160,12 @@ impl Scrollbar for Fractal {
                 self.square.clear();
 
                 if self.order == 0 {
-                    self.square.push(Point::new(0.5,0.5));
+                    self.square.push(Point::new(0.5, 0.5));
                     self.origin.x = 0.;
                     self.origin.y = 0.;
-                    self.scale = max/min;
+                    self.scale = max / min;
                     self.per_square = 1;
-                    return
+                    return;
                 }
 
                 Self::layout_square(
@@ -193,8 +193,9 @@ impl Scrollbar for Fractal {
                 let h = extent.height();
                 for p in &mut self.square {
                     #[allow(clippy::suspicious_operation_groupings)]
-                    let u = (1./notches + p.x - extent.x0) / (w * enlargen);
-                    let v = (1./notches + p.y - extent.y0 + (1. - (h*enlargen)) / 2.) / (w * enlargen);
+                    let u = (1. / notches + p.x - extent.x0) / (w * enlargen);
+                    let v = (1. / notches + p.y - extent.y0 + (1. - (h * enlargen)) / 2.)
+                        / (w * enlargen);
                     p.x = v;
                     p.y = u;
                 }
@@ -428,7 +429,7 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                         ctx.request_anim_frame();
                     }
                 }
-            },
+            }
             Event::MouseMove(e) => {
                 if data.ignore_next_mouse_move {
                     data.ignore_next_mouse_move = false;
@@ -594,8 +595,8 @@ impl Widget<PdfViewState> for ScrollbarWidget {
 
         let mut first_page_searched = 0;
         let mut last_page_searched = self.length;
-        
-        if let Some((first,last)) = data.search_progress {
+
+        if let Some((first, last)) = data.search_progress {
             first_page_searched = first;
             path.move_to(self.scrollbar.position(first));
             last_page_searched = last;
@@ -607,7 +608,7 @@ impl Widget<PdfViewState> for ScrollbarWidget {
 
         let space = self.scrollbar.gap_between_nodes();
 
-        let mut prev:Point = self.scrollbar.position(0);
+        let mut prev: Point = self.scrollbar.position(0);
         //let mut prev_colours = false;
 
         for i in 0..self.length {
@@ -636,13 +637,16 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                 }
             }
 
-            if data.scrollbar_layout == ScrollbarLayout::Fractal && i < self.length-1 && ! colours.is_empty() {
+            if data.scrollbar_layout == ScrollbarLayout::Fractal
+                && i < self.length - 1
+                && !colours.is_empty()
+            {
                 path2.move_to(prev.lerp(pos, 0.5));
                 path2.line_to(pos);
-                path2.line_to(pos.lerp(self.scrollbar.position(i+1), 0.5))
+                path2.line_to(pos.lerp(self.scrollbar.position(i + 1), 0.5))
             }
             prev = pos;
-            
+
             ctx.paint_with_z_index(1, move |ctx| {
                 let mut color = Color::grey(0.35);
 
@@ -650,14 +654,10 @@ impl Widget<PdfViewState> for ScrollbarWidget {
                     color = Color::GRAY;
                 }
 
-
-
                 if colours.is_empty() {
                     ctx.fill(Circle::new(pos, si * 0.2), &color);
                 } else {
-
-
-//                    let path = BezPath::new();
+                    //                    let path = BezPath::new();
                     let mut start_angle = 0.;
 
                     let sweep_angle = std::f64::consts::PI * 2. / colours.len() as f64;
@@ -690,15 +690,14 @@ impl Widget<PdfViewState> for ScrollbarWidget {
             if let Some((first, end)) = data.search_progress {
                 if i >= first && i <= end {
                     if let Some(rects) = data.search_results.borrow().get(&i) {
-
-                        if ! rects.is_empty() {
+                        if !rects.is_empty() {
                             ctx.paint_with_z_index(2, move |ctx| {
                                 let mut cross = BezPath::new();
                                 let s = 0.33;
-                                cross.move_to((pos.x-si*s, pos.y-si*s));
-                                cross.line_to((pos.x+si*s, pos.y+si*s));
-                                cross.move_to((pos.x+si*s, pos.y-si*s));
-                                cross.line_to((pos.x-si*s, pos.y+si*s));
+                                cross.move_to((pos.x - si * s, pos.y - si * s));
+                                cross.line_to((pos.x + si * s, pos.y + si * s));
+                                cross.move_to((pos.x + si * s, pos.y - si * s));
+                                cross.line_to((pos.x - si * s, pos.y + si * s));
                                 ctx.stroke(cross, &Color::WHITE, 3.);
                             });
                         }
@@ -739,7 +738,7 @@ impl Widget<PdfViewState> for ScrollbarWidget {
         ctx.stroke(path, &Color::grey(0.3), line_width);
 
         if data.scrollbar_layout == ScrollbarLayout::Fractal {
-            ctx.stroke(path2, &Color::grey(0.6), space*0.4);
+            ctx.stroke(path2, &Color::grey(0.6), space * 0.4);
         }
 
         // let mut ppath = BezPath::new();
@@ -807,12 +806,16 @@ pub fn make_context_menu(scrollbar_layout: &ScrollbarLayout) -> Menu<AppState> {
     Menu::empty()
         .entry(
             MenuItem::new(grid_label)
-            .on_activate(|ctx, _data: &mut AppState, _env| ctx.submit_command(SET_SCROLLBAR_LAYOUT_GRID))
-            .selected_if(move |_data, _env| sl == ScrollbarLayout::Grid),
+                .on_activate(|ctx, _data: &mut AppState, _env| {
+                    ctx.submit_command(SET_SCROLLBAR_LAYOUT_GRID)
+                })
+                .selected_if(move |_data, _env| sl == ScrollbarLayout::Grid),
         )
         .entry(
             MenuItem::new(fractal_label)
-            .on_activate(|ctx, _data: &mut AppState, _env| ctx.submit_command(SET_SCROLLBAR_LAYOUT_FRACTAL))
-            .selected_if(move |_data, _env| sl == ScrollbarLayout::Fractal)
+                .on_activate(|ctx, _data: &mut AppState, _env| {
+                    ctx.submit_command(SET_SCROLLBAR_LAYOUT_FRACTAL)
+                })
+                .selected_if(move |_data, _env| sl == ScrollbarLayout::Fractal),
         )
 }

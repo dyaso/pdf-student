@@ -3,14 +3,14 @@ use druid::kurbo::BezPath;
 use druid::piet::{FontFamily, ImageFormat, InterpolationMode, PietImage, Text, TextLayoutBuilder};
 use druid::widget::prelude::*;
 use druid::{
-    Affine, AppLauncher, Color, Command, FileDialogOptions, FileSpec, FontDescriptor,
-    FontStyle, FontWeight, Handled, Lens, LocalizedString, Menu, MenuItem, MouseButton,
-    MouseEvent, Point, Rect, Selector, SysMods, Target, TextLayout, Vec2, WindowDesc, WindowId,
+    Affine, AppLauncher, Color, Command, FileDialogOptions, FileSpec, FontDescriptor, FontStyle,
+    FontWeight, Handled, Lens, LocalizedString, Menu, MenuItem, MouseButton, MouseEvent, Point,
+    Rect, Selector, SysMods, Target, TextLayout, Vec2, WindowDesc, WindowId,
 };
 
-use druid::widget::{ControllerHost,
-    Align, Axis, Container, Controller, Flex, Label, LineBreaking, Padding, Painter, RadioGroup,
-    Scope, ScopeTransfer, Slider, Split, TextBox, ViewSwitcher, WidgetExt,
+use druid::widget::{
+    Align, Axis, Container, Controller, ControllerHost, Flex, Label, LineBreaking, Padding,
+    Painter, RadioGroup, Scope, ScopeTransfer, Slider, Split, TextBox, ViewSwitcher, WidgetExt,
 };
 
 use druid::commands::{COPY, CUT, PASTE, SHOW_PREFERENCES, UNDO};
@@ -90,24 +90,25 @@ impl PageOverviewPosition {
 }
 
 pub enum SearchState {
-    NotSearching (String),
-    Searching (PageNum,PageNum)
+    NotSearching(String),
+    Searching(PageNum, PageNum),
 }
 
 #[derive(Clone, Data, Copy, PartialEq)]
 pub enum WindowMode {
     Normal,
-    Goto(PageNum),
-    Find(PageNum),
+    Goto,
+    Find,
     //Search(PageNum,String)
     // Search(String),
     // SearchActive(String, PageNum, PageNum)
 }
 
 impl Default for WindowMode {
-    fn default() -> Self { Self::Normal }
+    fn default() -> Self {
+        Self::Normal
+    }
 }
-
 
 #[derive(Clone, Data, Lens)]
 pub struct PdfViewState {
@@ -142,16 +143,14 @@ pub struct PdfViewState {
     // unused?
     pub scrollbar_size: Size,
     pub contents_size: Size,
-    
+
     pub window_mode: WindowMode,
     pub find_goal: String,
     pub search_progress: Option<(PageNum, PageNum)>,
     pub search_results: Rc<RefCell<BTreeMap<PageNum, Vec<Rect>>>>,
     pub goto_page: String,
     pub goto_offset: String,
-    
 }
-
 
 impl PdfViewState {
     pub fn new(
@@ -174,11 +173,8 @@ impl PdfViewState {
             page_position: 0.5,
             scroll_direction: Axis::Horizontal,
 
-            text_viewer_size: Size::new(100., 100.), // need to know this here so pages an be sized while scrolling, so the overview panel can tell the main page view to scroll
-            page_image_cache: Rc::<RefCell<BTreeMap<PageNum, PietImage>>>::new(RefCell::new(
-                BTreeMap::<PageNum, PietImage>::new(),
-            )),
-            //  doubleclick_action,
+            text_viewer_size: Size::new(100., 100.), // need to know this here so pages can be sized while scrolling, so the overview panel can tell the main page view to scroll
+            page_image_cache: Rc::<RefCell<BTreeMap<PageNum, PietImage>>>::default(),
             ignore_next_mouse_move: false,
 
             overview_selected_page: most_recent_page,
@@ -191,13 +187,13 @@ impl PdfViewState {
             contents_size: Size::ZERO,
 
             window_mode: WindowMode::Normal,
-            
+
             find_goal: String::new(),
             search_progress: None,
-            search_results: Rc::<RefCell<BTreeMap<PageNum, Vec<Rect>>>>::new(RefCell::<BTreeMap::<PageNum, Vec<Rect>>>::new(BTreeMap::<PageNum, Vec<Rect>>::new())),
+
+            search_results: Rc::<RefCell<BTreeMap<PageNum, Vec<Rect>>>>::default(),
             goto_page: String::new(),
             goto_offset: String::new(),
-
         }
     }
 
@@ -208,19 +204,11 @@ impl PdfViewState {
             document_info: old.document_info.clone(),
             preferences: old.preferences.clone(),
 
-            //scrollbar_position: old.scrollbar_position,
-            //crop_weight:      old.crop_weight,
             text_viewer_size: Size::new(100., 100.),
-            //page_number:      old.page_number,
-            //page_position:    old.page_position,
 
-            //scroll_direction: old.scroll_direction,
             page_image_cache: old.page_image_cache.clone(),
-            //ignore_next_mouse_move: false,
-            //overview_selected_page: old.overview_selected_page,
             history: old.history.clone(),
 
-            // reverse_bookmarks: old.reverse_bookmarks,
             mouse_state: MouseState::Undragged,
 
             mouse_over_hyperlink: None,
@@ -558,7 +546,7 @@ impl PdfViewState {
                 Axis::Vertical => (crop_rect.width() as f32 * bounds.width()),
             };
 
-        // tofix: find how to look up actual pixel density -- https://docs.rs/druid/0.7.0/druid/struct.Scale.html#converting-with-scale looks like it, but how to get a scale struct to start with?
+        // tofix: find how to look up actual pixel density -- https://docs.rs/druid/0.7.0/druid/struct.Scale.html#converting-with-scale looks like it
         #[allow(unused_mut)]
         let mut high_pixel_density_scaling = 1.;
         #[cfg(target_os = "macos")]
@@ -676,7 +664,7 @@ impl PdfViewState {
                         });
                     }
                 }
-                if ! acc.is_empty() {
+                if !acc.is_empty() {
                     self.document
                         .hyperlinks
                         .insert(page_number, Some(acc.clone()));
@@ -813,7 +801,6 @@ impl PdfViewState {
             }
         }
 
-
         if desired_scaling > 1. {
             // debug mode is slow at drawing pages, release mode very fast
             #[cfg(not(debug_assertions))]
@@ -834,13 +821,15 @@ impl PdfViewState {
         if let Ok(finds) = finds {
             for f in finds {
                 // println!("found {:?}", f);
-                entry.push(Rect {x0: f.ul.x as f64 / w, y0: f.ul.y as f64 /h, x1: f.lr.x as f64/w, y1: f.lr.y as f64/h});
+                entry.push(Rect {
+                    x0: f.ul.x as f64 / w,
+                    y0: f.ul.y as f64 / h,
+                    x1: f.lr.x as f64 / w,
+                    y1: f.lr.y as f64 / h,
+                });
             }
         }
-
-
     }
-
 }
 
 use crate::Hyperlink;
@@ -885,7 +874,8 @@ impl ScopeTransfer for DocTransfer {
 
 use crate::contents_tree::ContentsTree;
 
-fn pdf_view_switcher() -> ControllerHost<ViewSwitcher<PdfViewState, (PageOverviewPosition, f64)>, PdfWindowController> {
+fn pdf_view_switcher(
+) -> ControllerHost<ViewSwitcher<PdfViewState, (PageOverviewPosition, f64)>, PdfWindowController> {
     use PageOverviewPosition::*;
 
     ViewSwitcher::new(
@@ -904,27 +894,25 @@ fn pdf_view_switcher() -> ControllerHost<ViewSwitcher<PdfViewState, (PageOvervie
                 .draggable(true)
                 .solid_bar(true),
             ),
-            (South, proportion) => 
-                Box::new(
-                    Split::rows(
-                        PdfTextWidget::new(),
-                        Split::columns(
+            (South, proportion) => Box::new(
+                Split::rows(
+                    PdfTextWidget::new(),
+                    Split::columns(
                         ContentsTree::default(),
                         ScrollbarWidget::with_layout_and_length(
                             data.scrollbar_layout,
                             data.document_info.page_count,
                         ),
-                                        )
-                            .draggable(true)
-                            .solid_bar(true)
-                            .split_point(0.2),
                     )
-                    //HilbertCurve::new())
-                    .split_point(*proportion)
                     .draggable(true)
-                    .solid_bar(true),
+                    .solid_bar(true)
+                    .split_point(0.2),
                 )
-            ,
+                //HilbertCurve::new())
+                .split_point(*proportion)
+                .draggable(true)
+                .solid_bar(true),
+            ),
             (East, proportion) => Box::new(
                 Split::columns(
                     PdfTextWidget::new(),
@@ -961,9 +949,7 @@ fn pdf_view_switcher() -> ControllerHost<ViewSwitcher<PdfViewState, (PageOvervie
         },
     )
     .controller(PdfWindowController)
-
 }
-
 
 use crate::find_goto_controllers::{make_find_ui, make_goto_ui};
 
@@ -973,7 +959,6 @@ pub fn make_pdf_view_window(
     old_view: Option<PdfViewState>,
 ) -> WindowDesc<AppState> // impl Widget<AppState>
 {
-
     let scope = Scope::from_function(
         move |data: AppState| match &old_view {
             Some(old_view_state) => PdfViewState::from_preexisting(&old_view_state),
@@ -988,25 +973,22 @@ pub fn make_pdf_view_window(
             ),
         },
         DocTransfer,
-        Container::new(
-            ViewSwitcher::new(|data: &PdfViewState, _env| data.window_mode,
-            |selector, data: &PdfViewState, _env|
-                match selector {
-                    WindowMode::Normal => Box::new(
-                        pdf_view_switcher()
-
-                        ),
-                    WindowMode::Goto(_) => 
-                        Box::new(Flex::column()
-                            .with_child(make_goto_ui())
-                            .with_flex_child(pdf_view_switcher().expand(), 1.)),
-                    WindowMode::Find(_) => 
-                        Box::new(Flex::column()
-                            .with_flex_child(pdf_view_switcher().expand(), 1.)
-                            .with_child(make_find_ui())),
-                }
-                )
-        ),
+        Container::new(ViewSwitcher::new(
+            |data: &PdfViewState, _env| data.window_mode,
+            |selector, data: &PdfViewState, _env| match selector {
+                WindowMode::Normal => Box::new(pdf_view_switcher()),
+                WindowMode::Goto => Box::new(
+                    Flex::column()
+                        .with_child(make_goto_ui())
+                        .with_flex_child(pdf_view_switcher().expand(), 1.),
+                ),
+                WindowMode::Find => Box::new(
+                    Flex::column()
+                        .with_flex_child(pdf_view_switcher().expand(), 1.)
+                        .with_child(make_find_ui()),
+                ),
+            },
+        )),
     );
 
     // fn title_maker(data: &AppState, doc_id: usize, win_id: WindowId) -> String {
@@ -1097,12 +1079,11 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                         data.page_image_cache.borrow_mut().remove(page_number);
                     }
                 } else if let Some(new_mode) = cmd.get(SET_WINDOW_MODE) {
-                        println!("HII");
-                    if *new_mode == WindowMode::Normal { 
+                    println!("HII");
+                    if *new_mode == WindowMode::Normal {
                         ctx.request_focus();
                         data.window_mode = *new_mode;
                     }
-                        
                 } else {
                     child.event(ctx, event, data, env);
                 }
@@ -1146,20 +1127,24 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for PdfWindowControlle
                                 data.goto_page = (data.page_number as i32 - offset + 1).to_string();
                                 data.goto_offset = offset.to_string();
 
-                                data.window_mode = WindowMode::Goto(data.page_number);
+                                data.window_mode = WindowMode::Goto;
                             },
-                            "f" => data.window_mode = WindowMode::Find(data.page_number),
+                            "f" => data.window_mode = WindowMode::Find,
                             "j" => ctx.submit_command(SET_WINDOW_MODE.with(WindowMode::Normal)),
+
 
                             _ => (),
                         }
                     }
                 // } else if e.key == Key::Escape {
                 //     data.window_mode = WindowMode::Normal;
-                } else if e.key == Key::Character("/".to_string())
-                    || e.key == Key::F3
-                {
-                    data.window_mode = WindowMode::Find(data.page_number);
+                } else if e.key == Key::Character("/".to_string()) || e.key == Key::F3 {
+                    data.window_mode = WindowMode::Find;
+                } else if e.key == Key::Escape {
+                    data.search_results.borrow_mut().clear();
+                    data.window_mode = WindowMode::Normal;
+                    ctx.submit_command(SET_WINDOW_MODE.with(WindowMode::Normal));
+                    ctx.set_handled();
                 } else if e.key == Key::Character("+".to_string())
                     || e.key == Key::Character("=".to_string())
                 {
@@ -1340,85 +1325,105 @@ pub fn make_context_menu(data: &mut PdfViewState, page_number: PageNum) -> Menu<
     // let page_number = data.document_info.page_number;
 
     let mut menu = Menu::empty()
-        .entry(MenuItem::new(new_view)
-            .on_activate(|ctx, _data, _env| ctx.submit_command(NEW_VIEW))
-            .hotkey(SysMods::Cmd, "n"))
         .entry(
-            MenuItem::new(
-                if data.crop_weight == 0. {
-                    finish_crop
-                } else {
-                    start_crop
-                })
+            MenuItem::new(new_view)
+                .on_activate(|ctx, _data, _env| ctx.submit_command(NEW_VIEW))
+                .hotkey(SysMods::Cmd, "n"),
+        )
+        .entry(
+            MenuItem::new(if data.crop_weight == 0. {
+                finish_crop
+            } else {
+                start_crop
+            })
             .on_activate(|ctx, _data, _env| ctx.submit_command(crate::pdf_view::TOGGLE_CROP_MODE))
-            .hotkey(SysMods::Cmd, "e")
+            .hotkey(SysMods::Cmd, "e"),
         );
-
-
 
     if !data.in_reading_mode() {
         menu = menu
             .entry(
-                MenuItem::new(
-                    LocalizedString::new("Use a unique custom margin for this page"),
-                )
-                .on_activate(move |ctx, _data: &mut AppState, _env| ctx.submit_command(CUSTOMIZE_PAGE_CROP.with(page_number)))
-                .selected_if(move |data, _env| data.all_local_documents_info[&fingerprint].has_custom_margins(page_number)))
+                MenuItem::new(LocalizedString::new(
+                    "Use a unique custom margin for this page",
+                ))
+                .on_activate(move |ctx, _data: &mut AppState, _env| {
+                    ctx.submit_command(CUSTOMIZE_PAGE_CROP.with(page_number))
+                })
+                .selected_if(move |data, _env| {
+                    data.all_local_documents_info[&fingerprint].has_custom_margins(page_number)
+                }),
+            )
             .entry(
-                MenuItem::new(
-                    LocalizedString::new("Use different margins for even- vs odd-numbered pages"))
-                .on_activate(move |ctx, _data: &mut AppState, _env| ctx.submit_command(TOGGLE_EVEN_ODD_PAGE_DISTINCTION.with(page_number)))
-                .selected_if(move |data, _env| data.all_local_documents_info[&fingerprint2].are_even_and_odd_distinguished()));
+                MenuItem::new(LocalizedString::new(
+                    "Use different margins for even- vs odd-numbered pages",
+                ))
+                .on_activate(move |ctx, _data: &mut AppState, _env| {
+                    ctx.submit_command(TOGGLE_EVEN_ODD_PAGE_DISTINCTION.with(page_number))
+                })
+                .selected_if(move |data, _env| {
+                    data.all_local_documents_info[&fingerprint2].are_even_and_odd_distinguished()
+                }),
+            );
     }
 
-    menu = menu.entry(
-            MenuItem::new(
-                LocalizedString::new("Reposition 'scrollbar'"))
-            .on_activate(|ctx, _data, _env| ctx.submit_command(REPOSITION_OVERVIEW))
-            .hotkey(SysMods::None, Key::Tab),
+    menu = menu
+        .entry(
+            MenuItem::new(LocalizedString::new("Reposition 'scrollbar'"))
+                .on_activate(|ctx, _data, _env| ctx.submit_command(REPOSITION_OVERVIEW))
+                .hotkey(SysMods::None, Key::Tab),
         )
         .entry(
-            MenuItem::new(
-                if data.scroll_direction == Axis::Vertical {
-                    scroll_horiz
-                } else {
-                    scroll_vert
-                },
-            )
+            MenuItem::new(if data.scroll_direction == Axis::Vertical {
+                scroll_horiz
+            } else {
+                scroll_vert
+            })
             .on_activate(|ctx, _data, _env| ctx.submit_command(SCROLL_DIRECTION_TOGGLE))
-            .hotkey(SysMods::Shift, Key::Tab)
+            .hotkey(SysMods::Shift, Key::Tab),
         )
         .entry(
-            MenuItem::new(
-                LocalizedString::new("Invert the colors of part of the page"))
+            MenuItem::new(LocalizedString::new(
+                "Invert the colors of part of the page",
+            ))
             .on_activate(|ctx, _data, _env| ctx.submit_command(START_INVERSION_AREA_SELECTION))
-            .hotkey(SysMods::Cmd, "i"));
+            .hotkey(SysMods::Cmd, "i"),
+        );
 
-    if let Some(rects) = data.document_info
-                .color_inversion_rectangles
-                .get(&page_number) {
-                    if ! rects.is_empty() {
-                        menu = menu.entry(
-                            MenuItem::new(
-                                LocalizedString::new("Remove the most recent color inversion"))
-                            .on_activate(move |ctx, _data, _env| ctx.submit_command(REMOVE_COLOR_INVERSION_RECTANGLE.with(page_number)))
-                        );
-                    }
-                }
+    if let Some(rects) = data
+        .document_info
+        .color_inversion_rectangles
+        .get(&page_number)
+    {
+        if !rects.is_empty() {
+            menu = menu.entry(
+                MenuItem::new(LocalizedString::new(
+                    "Remove the most recent color inversion",
+                ))
+                .on_activate(move |ctx, _data, _env| {
+                    ctx.submit_command(REMOVE_COLOR_INVERSION_RECTANGLE.with(page_number))
+                }),
+            );
+        }
+    }
 
     let doc_idx = data.docu_idx;
-    menu = menu.entry(
+    menu = menu
+        .entry(
             MenuItem::new(LocalizedString::new("Refresh window"))
-            .on_activate(|ctx, _data, _env| ctx.submit_command(REFRESH_PAGE_IMAGES))
-            .hotkey(SysMods::None, Key::F5))
+                .on_activate(|ctx, _data, _env| ctx.submit_command(REFRESH_PAGE_IMAGES))
+                .hotkey(SysMods::None, Key::F5),
+        )
         .entry(
             MenuItem::new(LocalizedString::new("Open another book..."))
-            .on_activate(move |ctx, _data, _env| ctx.submit_command(SHOW_BOOK_INFO.with(doc_idx)))
-            .hotkey(SysMods::Cmd, "b")
+                .on_activate(move |ctx, _data, _env| {
+                    ctx.submit_command(SHOW_BOOK_INFO.with(doc_idx))
+                })
+                .hotkey(SysMods::Cmd, "b"),
         )
         .entry(
             MenuItem::new(LocalizedString::new("Preferences..."))
-            .on_activate(|ctx, _data, _env| ctx.submit_command(SHOW_PREFERENCES))
-            .hotkey(SysMods::Cmd, "p"));
+                .on_activate(|ctx, _data, _env| ctx.submit_command(SHOW_PREFERENCES))
+                .hotkey(SysMods::Cmd, "p"),
+        );
     menu
 }

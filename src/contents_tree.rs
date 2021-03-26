@@ -93,7 +93,7 @@ fn layout(
 ) {
     node.position = vertex;
 
-    if ! node.children.is_empty() {
+    if !node.children.is_empty() {
         let log_grandchildren = node.children.len() as f64
             + node
                 .children
@@ -285,7 +285,7 @@ impl ContentsTree {
 
                 layout.draw(ctx, (0., 0.));
             } else {
-                if ! (-FRAC_PI_2..=FRAC_PI_2).contains(&end_angle) {
+                if !(-FRAC_PI_2..=FRAC_PI_2).contains(&end_angle) {
                     posn.0 -= layout.size().width;
                 }
                 let rect = Rect::from_origin_size(posn, layout.size());
@@ -461,7 +461,7 @@ impl Widget<PdfViewState> for ContentsTree {
 
         ctx.stroke(Circle::new(center, r), &Color::rgb8(50, 50, 50), 10.);
 
-//        const C_ZERO: Complex<f64> = Complex { re: 0., im: 0. };
+        //        const C_ZERO: Complex<f64> = Complex { re: 0., im: 0. };
 
         self.display(ctx, env, center, r, &self.table_of_contents, None, 1.);
 
@@ -536,4 +536,3 @@ impl Widget<PdfViewState> for ContentsTree {
         // ctx.draw_image(&image, size.to_rect(), InterpolationMode::Bilinear);
     }
 }
-

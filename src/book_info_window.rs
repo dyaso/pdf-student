@@ -299,7 +299,7 @@ impl FilterableList {
     fn select_item(&mut self, ctx: &mut EventCtx, idx: usize) {
         if let Some(item) = self.matches.get(idx) {
             self.selected_result = item.fingerprint.clone();
-    
+
             ctx.submit_command(
                 REPOSITION
                     .with(Rect::from_origin_size(
@@ -309,7 +309,6 @@ impl FilterableList {
                     .to(LIST_WIDGET_ID),
             );
         }
-
     }
 }
 
@@ -396,7 +395,7 @@ impl<W: Widget<FilterableList>> Controller<FilterableList, W> for BookListContro
                         //                        println!("{}",e.key);
                         child.event(ctx, event, data, env);
 
-                //        data.find_matches();
+                        //        data.find_matches();
                     }
                 }
             }
