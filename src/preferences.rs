@@ -101,24 +101,24 @@ impl Preferences {
 pub fn make_preferences_window() -> impl Widget<AppState> {
     Flex::column()
         .with_flex_child(
-            Flex::row()
-                .with_flex_child(
-                    Align::new(UnitPoint::RIGHT,
-                        Label::new(LocalizedString::new("Double-clicking on a PDF view window: "))
-                            .with_line_break_mode(LineBreaking::WordWrap)
-                            .with_text_alignment(TextAlignment::End)
+            // Flex::row()
+                // .with_flex_child(
+                //    // Align::new(UnitPoint::RIGHT,
+                //         Label::new(LocalizedString::new("Double-clicking on a PDF view window: "))
+                //             .with_line_break_mode(LineBreaking::WordWrap)
+                //             .with_text_alignment(TextAlignment::End)
 
-                    )
-                    , 1.)
-                .with_flex_child(
-                    Align::new(UnitPoint::LEFT,
+                //     //)
+                //     , 1.)
+                // .with_flex_child(
+                   Align::new(UnitPoint::CENTER,
                         RadioGroup::new(vec![
-                            ("lets you edit page crop margins", DoubleClickAction::CropMode),
-                            ("switches scroll direction", DoubleClickAction::SwitchScrollDirection),
+                            ("Double-click to edit page crop margins", DoubleClickAction::CropMode),
+                            ("Double-clic to switch scroll direction", DoubleClickAction::SwitchScrollDirection),
                         ]).padding(5.0)
                         .lens(Preferences::doubleclick_action).lens(AppState::preferences)
-                        )
-                    , 1.)
+                       )
+                    // , 1.)
             , 1.)
         .with_flex_child(
             Flex::row()
@@ -169,24 +169,24 @@ pub fn make_preferences_window() -> impl Widget<AppState> {
             ,1.)
 
         .with_flex_child(
-            Flex::row()
-                .with_flex_child(
-                    Align::new(UnitPoint::RIGHT,
-                        Label::new(LocalizedString::new("Default page overview layout: "))
-                            .with_line_break_mode(LineBreaking::WordWrap)
-                            .with_text_alignment(TextAlignment::End)
+            // Flex::row()
+            //     .with_flex_child(
+            //         Align::new(UnitPoint::RIGHT,
+            //             Label::new(LocalizedString::new("Default page overview layout: "))
+            //                 .with_line_break_mode(LineBreaking::WordWrap)
+            //                 .with_text_alignment(TextAlignment::End)
 
-                    )
-                    , 1.)
-                .with_flex_child(
-                    Align::new(UnitPoint::LEFT,
+            //         )
+            //         , 1.)
+            //     .with_flex_child(
+                    Align::new(UnitPoint::CENTER,
                         RadioGroup::new(vec![
-                            ("grid -- misleading spacing", ScrollbarLayout::Grid),
-                            ("fractal -- unpredictable shape, smaller", ScrollbarLayout::Fractal),
+                            ("Default to grid-shaped page overview (downsides are monotony and misleading spacing)", ScrollbarLayout::Grid),
+                            ("Default to fractal scrollbar (downsides are unpredictable direction and smaller page icons)", ScrollbarLayout::Fractal),
                         ]).padding(5.0)
                         .lens(Preferences::scrollbar_layout).lens(AppState::preferences)
                         )
-                    , 1.)
+                    // , 1.)
             , 1.)
         .padding(2.).controller(TextCopyPasteController)
 }

@@ -1,4 +1,5 @@
 #![allow(unused_imports)]
+#![windows_subsystem = "windows"]
 // Copyright 2019 The Druid Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -551,11 +552,21 @@ impl AppState {
         let canon = path
             .canonicalize()
             .expect("unable to canonicalize file path");
-        let path_string: String = canon
+
+
+        let mut path_string: String = canon
             .to_str()
             .expect("filepath could not be converted to string")
             .to_string();
+        
+        #[cfg(target_os = "windows")]
+        const VERBATIM_PREFIX: &str = r#"\\?\"#;
+        if path_string.starts_with(VERBATIM_PREFIX) {
+            path_string = path_string[VERBATIM_PREFIX.len()..].to_string();
+        }
+
         let mut user_facing_path = path_string.clone();
+
         if let Some(user_dirs) = directories::UserDirs::new() {
             let home = user_dirs.home_dir().to_str().unwrap();
             if path_string.starts_with(home) {
@@ -825,9 +836,9 @@ impl AppDelegate<AppState> for Delegate {
         data: &mut AppState,
         _env: &Env,
     ) -> Handled {
-        println!("comv {:?}", cmd);
+//        println!("comv {:?}", cmd);
         if let Some(message) = cmd.get(RECEIVED_MESSAGE) {
-            println!("reciefves message");
+  //          println!("reciefves message");
             let args = message.split('\t');
             for arg in args {
                 if let Some(doc_id) = data.load_file(&Path::new(arg)) {

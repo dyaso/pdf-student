@@ -455,7 +455,7 @@ impl Widget<PdfViewState> for ScrollbarWidget {
             Event::MouseDown(e) => {
                 if e.button.is_right() {
                     let menu = make_context_menu(&data.scrollbar_layout);
-                    ctx.show_context_menu(menu, e.pos);
+                    ctx.show_context_menu(menu, e.window_pos);
                 } else {
                     data.history.push_back(data.overview_selected_page);
                     data.select_page(data.page_number);
