@@ -27,13 +27,9 @@ notify = "5.0.0-pre.6"
 num-complex = "0.4"
 md5 = "0.7.0" # used as a fallback for fingerprinting PDF files
 
-[target.'cfg(unix)'.dependencies]
-#mupdf = {version = "0.1.2", features=["sys-lib-freetype", "sys-lib-harfbuzz"]}
-mupdf = { path = "../mupdf-rs/", features=["sys-lib-freetype", "sys-lib-harfbuzz"] }
-
-[target.'cfg(not(unix))'.dependencies]
-#mupdf = {version = "0.1.2"}
-mupdf = { path = "../mupdf-rs/" }
+mupdf = {version = "0.1.3", features=["sys-lib-freetype", "sys-lib-harfbuzz"]}
+#[target.'cfg(not(unix))'.dependencies]
+#mupdf = { path = "../mupdf-rs/" }
 
 # [target.x86_64-unknown-linux-gnu]
 # rustflags = ["-Clink-arg=-fuse-ld=lld"]

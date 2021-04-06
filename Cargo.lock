@@ -508,7 +508,7 @@ checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 [[package]]
 name = "druid"
 version = "0.7.0"
-source = "git+https://github.com/linebender/druid.git#886f2b2a7d03c1b6b48b2e024b3fb89ef706fb64"
+source = "git+https://github.com/linebender/druid.git#39238adf7a8e52f8fcaafd0436cbab516e8961d9"
 dependencies = [
  "console_error_panic_hook",
  "druid-derive",
@@ -530,7 +530,7 @@ dependencies = [
 [[package]]
 name = "druid-derive"
 version = "0.4.0"
-source = "git+https://github.com/linebender/druid.git#886f2b2a7d03c1b6b48b2e024b3fb89ef706fb64"
+source = "git+https://github.com/linebender/druid.git#39238adf7a8e52f8fcaafd0436cbab516e8961d9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -540,7 +540,7 @@ dependencies = [
 [[package]]
 name = "druid-shell"
 version = "0.7.0"
-source = "git+https://github.com/linebender/druid.git#886f2b2a7d03c1b6b48b2e024b3fb89ef706fb64"
+source = "git+https://github.com/linebender/druid.git#39238adf7a8e52f8fcaafd0436cbab516e8961d9"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -1260,9 +1260,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.92"
+version = "0.2.93"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56d855069fafbb9b344c0f962150cd2c1187975cb1c22c1522c240d8c4986714"
+checksum = "9385f66bf6105b241aa65a61cb923ef20efc665cb9f9bb50ac2f0c4b7f378d41"
 
 [[package]]
 name = "libloading"
@@ -1276,9 +1276,9 @@ dependencies = [
 
 [[package]]
 name = "lock_api"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd96ffd135b2fd7b973ac026d28085defbe8983df057ced3eb4f2130b0831312"
+checksum = "5a3c91c24eae6777794bb1997ad98bbb87daf92890acab859f7eaa4320333176"
 dependencies = [
  "scopeguard",
 ]
