@@ -559,7 +559,7 @@ impl AppState {
             .expect("filepath could not be converted to string")
             .to_string();
         
-        #[cfg(target_os = "windows")]
+//        #[cfg(target_os = "windows")]
         const VERBATIM_PREFIX: &str = r#"\\?\"#;
         if path_string.starts_with(VERBATIM_PREFIX) {
             path_string = path_string[VERBATIM_PREFIX.len()..].to_string();
