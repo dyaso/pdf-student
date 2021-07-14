@@ -120,9 +120,10 @@ enum CropMargins {
 fn fingerprint(document: &PdfDocument) -> Option<String> {
     let trailer = document.trailer().unwrap();
     let pdf_id = trailer.get_dict("ID").expect("unwrap 1 failed");
-
+println!("fingerprinder");
     match pdf_id {
         Some(pdf_id) => {
+
             let fingerprint = pdf_id
                 .resolve()
                 .unwrap()
@@ -131,6 +132,12 @@ fn fingerprint(document: &PdfDocument) -> Option<String> {
                 .unwrap()
                 .unwrap()
                 .to_string();
+
+            let fngr_string = fingerprint[1..fingerprint.len() - 1].to_string();
+            if fngr_string == "67C6697351FF4AEC29CDBAABF2FBE346".to_string() {
+                println!("oh noes!");
+                return None
+            }
             Some(fingerprint[1..fingerprint.len() - 1].to_string())
         }
         None => None,
@@ -600,6 +607,8 @@ impl AppState {
                     let res = format!("{:x}", digest);
                     res
                 });
+
+                println!("finginrepring: {}", fingerprint);
 
                 let mut doc_info = DocumentInfo::from_fingerprint(
                     &PathBuf::from(&self.preferences.syncable_data_directory),

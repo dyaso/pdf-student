@@ -41,13 +41,29 @@ pub fn make_find_ui() -> impl Widget<PdfViewState> {
 pub fn make_goto_ui() -> impl Widget<PdfViewState> {
     SizedBox::new(
         Flex::row()
-        .with_child(Label::new("Go to page:"))
-        .with_child(TextBox::new().lens(PdfViewState::goto_page).controller(GotoController))
-        .with_default_spacer()
-        .with_child(Label::new(" using page offset (i.e.: which file page number (visible in the window title) does text page #1 appear on? ) "))
-        .with_default_spacer()
-        .with_child(TextBox::new().lens(PdfViewState::goto_offset).controller(OffsetController))
-    ).height(50.)
+            .with_child(Label::new("Go to page"))
+            .with_default_spacer()
+            .with_child(
+                TextBox::new()
+                    .lens(PdfViewState::goto_page)
+                    .controller(GotoController),
+            )
+            .with_default_spacer()
+            .with_child(Label::new(
+                "using a printed page number -> file page number offset of",
+            ))
+            .with_default_spacer()
+            .with_child(
+                TextBox::new()
+                    .lens(PdfViewState::goto_offset)
+                    .controller(OffsetController),
+            )
+            .with_default_spacer()
+            .with_child(Label::new(
+                "[= page number shown in window title bar for text page #1]",
+            )),
+    )
+    .height(50.)
 }
 
 use crate::pdf_text_widget::SHOW_GIVEN_PAGE;

@@ -897,16 +897,16 @@ fn pdf_view_switcher(
             (South, proportion) => Box::new(
                 Split::rows(
                     PdfTextWidget::new(),
-                    Split::columns(
-                        ContentsTree::default(),
-                        ScrollbarWidget::with_layout_and_length(
-                            data.scrollbar_layout,
-                            data.document_info.page_count,
-                        ),
-                    )
-                    .draggable(true)
-                    .solid_bar(true)
-                    .split_point(0.2),
+                    // Split::columns(
+                    //     ContentsTree::default(),
+                    ScrollbarWidget::with_layout_and_length(
+                        data.scrollbar_layout,
+                        data.document_info.page_count,
+                    ),
+                    // )
+                    // .draggable(true)
+                    // .solid_bar(true)
+                    // .split_point(0.2),
                 )
                 //HilbertCurve::new())
                 .split_point(*proportion)
