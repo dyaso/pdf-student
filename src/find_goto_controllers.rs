@@ -124,7 +124,6 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for GotoController {
             }
         }
     }
-
     fn lifecycle(
         &mut self,
         child: &mut W,
@@ -230,7 +229,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for OffsetController {
     // }
 }
 
-impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for FindController {
+impl<W: Widget<PdfViewState>> Controller <PdfViewState, W> for FindController {
     fn event(
         &mut self,
         child: &mut W,
@@ -243,6 +242,7 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for FindController {
             Event::Command(cmd) => {
                 if cmd.is(FOCUS_FIND_TEXTBOX) {
                     ctx.request_focus();
+//                    ctx.set_handled();
                 } else {
                     child.event(ctx, event, data, env);
                 }
@@ -296,5 +296,6 @@ impl<W: Widget<PdfViewState>> Controller<PdfViewState, W> for FindController {
         if data.find_goal != old_data.find_goal {
             ctx.submit_command(START_SEARCH); // handled by the scrollbar so it can request animation frames as it's redrawn to show search progress
         }
+        child.update(ctx, old_data, data, env);
     }
 }

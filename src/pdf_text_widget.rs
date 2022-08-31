@@ -226,7 +226,7 @@ impl PdfTextWidget {
     fn get_page_screen_rectangle(&self, page_number: PageNum) -> Rect {
         match self.page_positions_before_animating.get(&page_number) {
             Some(r) => *r,
-            None => unimplemented!(),
+        None => Rect::from_points((0.44,0.44),(0.55,0.55))// unimplemented!(),
         }
     }
 
@@ -630,9 +630,21 @@ impl Widget<PdfViewState> for PdfTextWidget {
                     ctx.show_context_menu(menu, e.pos);
                     data.ignore_next_mouse_move = true;
                 }
-
+  
                 if e.button == MouseButton::Left {
-                    if e.count == 2 {
+                    if e.mods.ctrl() {
+                        println!("plooded");
+                        // flood fill discover colour inversion rectangle
+                        let (curr_page, _) = self.hover_target;
+                        let mpos = self.page_coords_of_screen_point(
+                            data,
+                            curr_page,
+                            e.pos);
+                        data.flood_fill_invert_rectangle(curr_page, mpos);
+                        data.page_image_cache.borrow_mut().remove(&curr_page);
+                        return
+                    }
+                    else if e.count == 2 {
                         match data.preferences.doubleclick_action {
                             DoubleClickAction::CropMode => {
                                 self.toggle_crop_mode(ctx, &data);
@@ -664,10 +676,24 @@ impl Widget<PdfViewState> for PdfTextWidget {
                             start_pos: e.pos,
                             start_crop_rect,
                         };
-                    } else if let Some((page, _)) = data.mouse_over_hyperlink {
-                        data.history.push_back(curr_page);
-                        data.set_visible_scroll_position(ctx.window_id(), page, None);
-                        data.select_page(page);
+                    } else if let Some((page, url)) = &data.mouse_over_hyperlink {
+                        let p = *page;
+
+                        if url.starts_with("http") {
+                            println!("Opening URL: {}", url);
+                            use open;
+
+                            #[cfg(not(target_os="linux"))]
+                            open::that(url);
+                            
+// `xdg-open` (which the `Open` crate invokes) doesn't work on NixOS for me
+                            #[cfg(target_os="linux")]
+                            std::process::Command::new("firefox").arg(url).spawn();
+                        } else {                        
+                            data.history.push_back(curr_page);
+                            data.set_visible_scroll_position(ctx.window_id(), p, None);
+                            data.select_page(p);
+                        }
                     } else {
                         data.mouse_state =
                             MouseState::ScrollPageDrag(e.pos, data.page_number, data.page_position);

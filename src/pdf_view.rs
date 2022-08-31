@@ -145,7 +145,9 @@ pub struct PdfViewState {
     pub contents_size: Size,
 
     pub window_mode: WindowMode,
-    pub find_goal: String,
+    pub find_goal: //std::sync::Arc<
+    String
+    ,//>,
     pub search_progress: Option<(PageNum, PageNum)>,
     pub search_results: Rc<RefCell<BTreeMap<PageNum, Vec<Rect>>>>,
     pub goto_page: String,
@@ -533,6 +535,34 @@ impl PdfViewState {
         }
     }
 
+    pub fn flood_fill_invert_rectangle(&mut self, page_number: PageNum, mpos: Point) {
+        let pixmap = self.get_page_pixmap(page_number, Size::new(1024.,1024.));
+
+        let w = pixmap.width() as usize;
+        let h = pixmap.height() as usize;
+        let pxls = pixmap.samples();
+
+        let x = f64::round(mpos.x*w as f64) as usize;
+        let y = f64::round((mpos.y)*h as f64) as usize;
+
+        let (_, top) = find_extent(pxls, x, y, 0, -1, w, h);
+        let (_, bottom) = find_extent(pxls, x, y, 0, 1, w, h);
+        let (left, _) = find_extent(pxls, x, y, -1, 0, w, h);
+        let (right, _) = find_extent(pxls, x, y, 1, 0, w, h);
+
+        let t = f64::max(0., top as f64 / h as f64);
+        let l = f64::max(0., left as f64 / w as f64);
+        let b = f64::min(1., bottom as f64 / h as f64);
+        let r = f64::min(1., right as f64 / w as f64);
+
+        let rects = self
+            .document_info
+            .color_inversion_rectangles
+            .entry(page_number)
+            .or_insert_with(Vector::<Rect>::new);
+        rects.push_back(Rect::from_points((l,t),(r,b)));
+    }
+
     pub fn get_page_pixmap(&self, page_number: PageNum, size: Size) -> Pixmap {
         let page = self.document.load_page(page_number);
         let bounds = page.bounds().expect("Unable to get page bounds");
@@ -831,6 +861,40 @@ impl PdfViewState {
         }
     }
 }
+
+fn is_dark_pixel(pxls: &[u8], x: usize, y: usize, width: usize, height: usize) -> bool {
+    let pos = 3 * (x + y * width);
+    //println!("x {} y {} , r {} g {} b {}", x, y, pxls[pos], pxls[pos+1], pxls[pos+2]);
+    return x==0 || x==width-1||y==0||y==height-1||(pxls[pos] <= 10 && pxls[pos+1] <= 10 && pxls[pos+2] <= 10)
+}
+
+// walk in direction [dx,dy] untill hitting a pixel with [r,g,b]<10 and at least ten extending perpendicularly on both sides the same
+fn find_extent(pxls: &[u8], start_x: usize, start_y: usize, dx: i32, dy: i32, max_x: usize, max_y: usize) -> (usize,usize) {
+    let mut x = start_x;
+    let mut y = start_y;
+    'lookin: while 0 < x && x < max_x && 0 < y && y < max_y {
+        x = (x as i32 + dx) as usize;
+        y = (y as i32 + dy) as usize;
+        if is_dark_pixel(pxls, x, y, max_x, max_y) {
+            let mut x2 = x;
+            let mut y2 = y;
+            let mut x3 = x;
+            let mut y3 = y;
+            for i in 1..10 {
+                // walk perpendicular to the dark pixel we found
+                x2 = (x2 as i32 + dy) as usize; y2 = (y2 as i32 + dx) as usize;
+                x3 = (x3 as i32 - dy) as usize; y3 = (y3 as i32 - dx) as usize;
+                if !is_dark_pixel(pxls, x2, y2, max_x, max_y)
+                || !is_dark_pixel(pxls, x3, y3, max_x, max_y) {
+                    continue 'lookin;
+                }
+            }
+            return ((x as i32 - dx) as usize, (y as i32 - dy) as usize) // return where we found a dark patch
+        }
+    }
+    return (x,y) // hit the edge of the image, also counts
+}
+
 
 use crate::Hyperlink;
 

@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 
-# druid = {version = "0.7.0", features = ["im", "serde"]}
+#druid = {version = "0.7.0", features = ["im", "serde"]}
 druid = { git = "https://github.com/linebender/druid.git" , features = ["im", "serde"]}
 
 piet = {version = "*", features = ["serde"] }
@@ -18,16 +18,18 @@ interprocess = "1.1.1"
 
 #path-slash = "0.1.4"
 
+open = "3" # for opening URL hyperlinks
+
 directories = "3.0"
 
 serde = {version = "*", features = ["derive"] }
 serde_json = "*"
 
-notify = "5.0.0-pre.6"
+notify = "5.0.0-pre.16"
 num-complex = "0.4"
 md5 = "0.7.0" # used as a fallback for fingerprinting PDF files
 
-mupdf = {version = "0.1.3", features=["sys-lib-freetype", "sys-lib-harfbuzz"]}
+mupdf = {version = "0.3", features=["sys-lib-freetype", "sys-lib-harfbuzz"]}
 #[target.'cfg(not(unix))'.dependencies]
 #mupdf = { path = "../mupdf-rs/" }
 

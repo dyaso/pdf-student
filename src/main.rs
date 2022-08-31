@@ -1,3 +1,4 @@
+
 #![allow(unused_imports)]
 #![windows_subsystem = "windows"]
 // Copyright 2019 The Druid Authors.
@@ -53,6 +54,7 @@ use druid::{
     WidgetExt, //for https://docs.rs/druid/0.7.0/druid/widget/trait.Controller.html#a-textbox-that-takes-focus-on-launch
     WidgetPod,
     WindowDesc,
+    WindowHandle,
     WindowId,
 };
 
@@ -946,6 +948,7 @@ impl AppDelegate<AppState> for Delegate {
     fn window_added(
         &mut self,
         _id: WindowId,
+        _handle: WindowHandle,
         _data: &mut AppState,
         _env: &Env,
         _ctx: &mut DelegateCtx,
@@ -1015,7 +1018,7 @@ fn main() -> Result<(), PlatformError> {
     match conn {
         // connected to a preexisting copy of ourselves, send them our command line args then quit
         Ok(mut conn) => {
-            // println!("sent message to twin");
+            println!("sent message to twin");
             let message = env::args()
                 .skip(1)
                 .filter_map(|arg| {
@@ -1055,9 +1058,11 @@ fn main() -> Result<(), PlatformError> {
                 launcher = AppLauncher::with_window(
                     crate::book_info_window::make_book_info_window(&state, 0),
                 )
+                .configure_env(|env, _| env.set(druid::theme::UI_FONT, FontDescriptor::new(FontFamily::SANS_SERIF).with_size(16.)))
                 .delegate(Delegate::new(vec![]));
             } else {
                 launcher = AppLauncher::with_window(make_pdf_view_window(&mut state, 0, None))
+                    .configure_env(|env, _| env.set(druid::theme::UI_FONT, FontDescriptor::new(FontFamily::SANS_SERIF).with_size(16.)))
                     .delegate(Delegate::new(windows[1..].to_vec()));
             }
 
@@ -1069,7 +1074,7 @@ fn main() -> Result<(), PlatformError> {
             let file_change_notifications_event_sink = launcher.get_external_handle();
 
             let watcher: Result<RecommendedWatcher, notify::Error> =
-                Watcher::new_immediate(move |res: Result<notify::event::Event, _>| {
+                Watcher::new(move |res: Result<notify::event::Event, _>| {
                     if let Ok(event) = res {
                         // https://docs.rs/notify/5.0.0-pre.6/notify/event/enum.EventKind.html
                         println!("umm {:?}", event.kind);
@@ -1089,7 +1094,7 @@ fn main() -> Result<(), PlatformError> {
                             }
                         }
                     }
-                });
+                }, notify::Config::default());
             match watcher {
                 Ok(mut w) => {
                     let p = Path::new(&state.preferences.syncable_data_directory);
