@@ -112,7 +112,7 @@ pub fn make_preferences_window() -> impl Widget<AppState> {
                 //     , 1.)
                 // .with_flex_child(
                    Align::new(UnitPoint::CENTER,
-                        RadioGroup::new(vec![
+                        RadioGroup::row(vec![
                             ("Double-click to edit page crop margins", DoubleClickAction::CropMode),
                             ("Double-clic to switch scroll direction", DoubleClickAction::SwitchScrollDirection),
                         ]).padding(5.0)
@@ -180,7 +180,7 @@ pub fn make_preferences_window() -> impl Widget<AppState> {
             //         , 1.)
             //     .with_flex_child(
                     Align::new(UnitPoint::CENTER,
-                        RadioGroup::new(vec![
+                        RadioGroup::row(vec![
                             ("Default to grid-shaped page overview (downsides are monotony and misleading spacing)", ScrollbarLayout::Grid),
                             ("Default to fractal scrollbar (downsides are unpredictable direction and smaller page icons)", ScrollbarLayout::Fractal),
                         ]).padding(5.0)
